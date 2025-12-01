@@ -54,13 +54,14 @@ export function useOutlineTree(initialState: EditorBlockNode[]) {
     });
   }, []);
 
-  const addSibling = useCallback((targetId: string, newNode: EditorBlockNode) => {
+  const addSibling = useCallback((targetId: string, newNode: EditorBlockNode, direction: 'before' | 'after' = 'after') => {
     setRootBlocks(prev => {
         const addRecursive = (nodes: EditorBlockNode[]): EditorBlockNode[] => {
             const index = nodes.findIndex(n => n.id === targetId);
             if (index !== -1) {
                 const newNodes = [...nodes];
-                newNodes.splice(index + 1, 0, newNode);
+                const insertIndex = direction === 'after' ? index + 1 : index;
+                newNodes.splice(insertIndex, 0, newNode);
                 return newNodes;
             }
             return nodes.map(node => {

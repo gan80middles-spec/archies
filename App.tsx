@@ -100,6 +100,8 @@ export default function App() {
           onSave={handleUpload}
           isLightTheme={isLightTheme}
           initialCategory={editorInitialCategory}
+          onToggleTheme={toggleTheme}
+          entries={entries} 
         />
       )}
 

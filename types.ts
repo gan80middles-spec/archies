@@ -1,4 +1,5 @@
 
+
 export enum Category {
   CREATURE = '万灵图谱',   // Biology, Species
   ITEM = '万器图鉴',       // Weapons, Items, Relics, Vehicles
@@ -39,7 +40,7 @@ export interface Entry {
   anomalous: number; // 1-7
 }
 
-export type BlockType = 'h1' | 'h2' | 'h3' | 'paragraph' | 'quote' | 'code' | 'li' | 'hr' | 'image';
+export type BlockType = 'h1' | 'h2' | 'h3' | 'paragraph' | 'quote' | 'code' | 'li' | 'hr' | 'image' | 'callout' | 'reference-entry';
 
 // Recursive Tree Node Definition - Discriminated Union
 interface BaseBlock {
@@ -56,6 +57,9 @@ export interface TextBlock extends BaseBlock {
   checked?: never;
   src?: never;
   alt?: never;
+  variant?: never;
+  entryId?: never;
+  note?: never;
 }
 
 export interface ListBlock extends BaseBlock {
@@ -65,6 +69,9 @@ export interface ListBlock extends BaseBlock {
   checked?: boolean;
   src?: never;
   alt?: never;
+  variant?: never;
+  entryId?: never;
+  note?: never;
 }
 
 export interface ImageBlock extends BaseBlock {
@@ -74,6 +81,9 @@ export interface ImageBlock extends BaseBlock {
   content?: string; // Optional for compatibility/alt text storage
   listStyle?: never;
   checked?: never;
+  variant?: never;
+  entryId?: never;
+  note?: never;
 }
 
 export interface HrBlock extends BaseBlock {
@@ -83,9 +93,36 @@ export interface HrBlock extends BaseBlock {
   checked?: never;
   src?: never;
   alt?: never;
+  variant?: never;
+  entryId?: never;
+  note?: never;
 }
 
-export type EditorBlockNode = TextBlock | ListBlock | ImageBlock | HrBlock;
+export interface CalloutBlock extends BaseBlock {
+  type: 'callout';
+  content: string;
+  variant: 'info' | 'warning' | 'danger' | 'success';
+  listStyle?: never;
+  checked?: never;
+  src?: never;
+  alt?: never;
+  entryId?: never;
+  note?: never;
+}
+
+export interface ReferenceEntryBlock extends BaseBlock {
+  type: 'reference-entry';
+  entryId: string; // ID of the referenced entry
+  note?: string;   // Optional annotation
+  content?: string; // Unused, but kept for base compatibility
+  listStyle?: never;
+  checked?: never;
+  src?: never;
+  alt?: never;
+  variant?: never;
+}
+
+export type EditorBlockNode = TextBlock | ListBlock | ImageBlock | HrBlock | CalloutBlock | ReferenceEntryBlock;
 
 // Updated to Jewel Tones / Muted Alchemical Colors
 export const CATEGORY_COLORS: Record<Category, string> = {

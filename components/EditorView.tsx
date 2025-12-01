@@ -1,10 +1,8 @@
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Entry, Category, EditorBlockNode, BlockType, REALISM_DESCRIPTIONS, RISK_DESCRIPTIONS, ANOMALOUS_DESCRIPTIONS } from '../types';
+import { Entry, Category, EditorBlockNode, BlockType, TextBlock, ListBlock, CalloutBlock, ReferenceEntryBlock, CATEGORY_COLORS } from '../types';
 import { 
   Save, Plus, X, Type, Heading1, Heading2, Heading3, Quote, Code, ArrowLeft, Eye, Upload, Image as ImageIcon, ListPlus,
-  List, ListOrdered, CheckSquare, Minus, Bold, Italic, Link as LinkIcon, Table, FileText, PenTool, AlertTriangle, Activity, Brain
+  List, ListOrdered, CheckSquare, Minus, Bold, Italic, Link as LinkIcon, Table, FileText, PenTool, AlertTriangle, Activity, Brain, Sun, Moon, ArrowUp, ArrowDown, Settings2, ShieldAlert, Sparkles, Hash, ScanEye, Terminal, Zap, Command, Keyboard, Link2, Search
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -18,6 +16,7 @@ const getChildBlockType = (parentType: BlockType): BlockType => {
     case 'h2': return 'h3';
     case 'h3': return 'paragraph';
     case 'li': return 'li'; 
+    case 'callout': return 'paragraph';
     default: return 'paragraph';
   }
 };
@@ -27,7 +26,8 @@ interface BlockRenderConfig {
     input: (
         node: EditorBlockNode, 
         commonProps: any, 
-        onUpdate: (id: string, u: Partial<EditorBlockNode>) => void
+        onUpdate: (id: string, u: Partial<EditorBlockNode>) => void,
+        entries?: Entry[] // Added for reference lookups
     ) => React.ReactNode;
 }
 
@@ -54,7 +54,7 @@ const BLOCK_RENDER_CONFIG: Record<string, BlockRenderConfig> = {
     },
     paragraph: {
         prefix: () => <div className="w-6 mr-4"></div>,
-        input: (node, props) => <textarea {...props} placeholder="撰写档案内容..." className={`${props.className} text-base text-parchment-dim resize-none overflow-hidden leading-relaxed font-sans placeholder:text-parchment/5`} rows={calculateRows(node.content)} />
+        input: (node, props) => <textarea {...props} placeholder="撰写档案内容... (选中文本可添加特效)" className={`${props.className} text-base text-parchment-dim resize-none overflow-hidden leading-relaxed font-sans placeholder:text-parchment/5`} rows={calculateRows(node.content)} />
     },
     quote: {
         prefix: () => <div className="w-1 h-full bg-gold/50 mx-auto mr-4"></div>,
@@ -106,33 +106,134 @@ const BLOCK_RENDER_CONFIG: Record<string, BlockRenderConfig> = {
                 />
             </div>
         )
+    },
+    callout: {
+        prefix: () => <Terminal className="w-4 h-4 text-gold/50 mr-4 mx-auto" />,
+        input: (node, props, onUpdate) => {
+            const variant = (node as CalloutBlock).variant || 'info';
+            const colors = {
+                info: 'border-blue-500/50 bg-blue-500/5 text-blue-200',
+                warning: 'border-amber-500/50 bg-amber-500/5 text-amber-200',
+                danger: 'border-red-500/50 bg-red-500/5 text-red-200',
+                success: 'border-emerald-500/50 bg-emerald-500/5 text-emerald-200',
+            };
+            return (
+                <div className={`w-full rounded-sm border-l-2 p-3 ${colors[variant]} transition-colors relative group/callout`}>
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover/callout:opacity-100 transition-opacity">
+                        <button onClick={() => onUpdate(node.id, { variant: 'info' })} className={`w-3 h-3 rounded-full bg-blue-500 ${variant === 'info' ? 'ring-1 ring-white' : 'opacity-40'}`} />
+                        <button onClick={() => onUpdate(node.id, { variant: 'warning' })} className={`w-3 h-3 rounded-full bg-amber-500 ${variant === 'warning' ? 'ring-1 ring-white' : 'opacity-40'}`} />
+                        <button onClick={() => onUpdate(node.id, { variant: 'danger' })} className={`w-3 h-3 rounded-full bg-red-500 ${variant === 'danger' ? 'ring-1 ring-white' : 'opacity-40'}`} />
+                        <button onClick={() => onUpdate(node.id, { variant: 'success' })} className={`w-3 h-3 rounded-full bg-emerald-500 ${variant === 'success' ? 'ring-1 ring-white' : 'opacity-40'}`} />
+                    </div>
+                    <textarea 
+                        {...props} 
+                        placeholder="系统提示信息..." 
+                        className={`${props.className} bg-transparent text-sm font-mono resize-none outline-none`} 
+                        rows={calculateRows(node.content)} 
+                    />
+                </div>
+            );
+        }
+    },
+    'reference-entry': {
+        prefix: () => <Link2 className="w-4 h-4 text-gold/80 mr-4 mx-auto" />,
+        input: (node, props, onUpdate, entries) => {
+            const refNode = node as ReferenceEntryBlock;
+            const referencedEntry = entries?.find(e => e.id === refNode.entryId);
+
+            if (!referencedEntry) {
+                return (
+                    <div className="w-full p-4 border border-dashed border-red-500/30 bg-red-900/10 rounded-sm flex items-center gap-3 text-red-300/60 font-mono text-xs">
+                        <AlertTriangle className="w-4 h-4" /> 
+                        <span>关联档案不存在 (ID: {refNode.entryId})</span>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="w-full my-2 select-none">
+                     <ReferenceCard entry={referencedEntry} isPreview={false} />
+                     <input 
+                        value={refNode.note || ''} 
+                        onChange={(e) => onUpdate(node.id, { note: e.target.value })}
+                        placeholder="添加引用备注 (可选)..." 
+                        className="w-full bg-transparent text-[10px] text-parchment-dim/50 font-mono mt-1 outline-none border-none placeholder-white/10 focus:placeholder-white/20"
+                     />
+                </div>
+            );
+        }
     }
 };
 
 // --- COMPONENTS ---
+
+// 1. Reference Card Component (Shared)
+const ReferenceCard: React.FC<{ entry: Entry, isPreview: boolean }> = ({ entry, isPreview }) => {
+    return (
+        <div className={`relative overflow-hidden rounded-sm border bg-obsidian-light/60 backdrop-blur-sm transition-all group ${isPreview ? 'hover:bg-white/5 hover:border-gold/30 hover:shadow-lg cursor-pointer' : 'border-gold/20'}`}>
+             <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${CATEGORY_COLORS[entry.category]} opacity-60`}></div>
+             <div className="p-3 flex items-start gap-3">
+                 {/* Mini Icon */}
+                 <div className="mt-0.5 text-gold/60">
+                     <Link2 className="w-3.5 h-3.5" />
+                 </div>
+                 
+                 <div className="flex-1 min-w-0">
+                     <div className="flex items-center justify-between mb-1">
+                         <div className="flex items-center gap-2">
+                             <h4 className="font-serif text-parchment font-bold text-sm truncate">{entry.title}</h4>
+                             <span className="text-[9px] font-mono text-parchment-dim/50 border border-white/5 px-1 rounded-sm uppercase tracking-wider">{entry.category}</span>
+                         </div>
+                     </div>
+                     
+                     <div className="text-[10px] text-parchment-dim/60 line-clamp-1 mb-2 font-serif italic">{entry.content.slice(0, 60)}...</div>
+
+                     {/* Stats Bars */}
+                     <div className="grid grid-cols-3 gap-2 border-t border-white/5 pt-2">
+                         <div className="flex flex-col gap-0.5">
+                             <div className="flex justify-between text-[8px] text-parchment-dim/50 font-mono"><span>REALISM</span><span>{entry.realism}</span></div>
+                             <div className="h-1 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-gold" style={{width: `${(entry.realism/5)*100}%`}}></div></div>
+                         </div>
+                         <div className="flex flex-col gap-0.5">
+                             <div className="flex justify-between text-[8px] text-parchment-dim/50 font-mono"><span>RISK</span><span>{entry.risk}</span></div>
+                             <div className="h-1 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-red-500" style={{width: `${(entry.risk/8)*100}%`}}></div></div>
+                         </div>
+                         <div className="flex flex-col gap-0.5">
+                             <div className="flex justify-between text-[8px] text-parchment-dim/50 font-mono"><span>ANOMALY</span><span>{entry.anomalous}</span></div>
+                             <div className="h-1 bg-white/5 rounded-full overflow-hidden"><div className="h-full bg-cyan-400" style={{width: `${(entry.anomalous/7)*100}%`}}></div></div>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+        </div>
+    );
+};
 
 interface BlockTreeProps {
   nodes: EditorBlockNode[];
   depth: number;
   activeMenuId: string | null;
   onSetActiveMenuId: (id: string | null) => void;
+  activeInsertMenuId: string | null;
+  onSetActiveInsertMenuId: (id: string | null) => void;
   onUpdate: (id: string, updates: Partial<EditorBlockNode>) => void;
-  onAddSibling: (targetId: string, newNode: EditorBlockNode) => void;
+  onAddSibling: (targetId: string, newNode: EditorBlockNode, direction?: 'before' | 'after') => void;
   onAddChild: (parentId: string, type: BlockType, extra?: Partial<EditorBlockNode>) => void;
   onRemove: (id: string) => void;
   blockRefs: React.MutableRefObject<Record<string, HTMLElement | null>>;
   onNavigate: (id: string, direction: 'up' | 'down') => void;
+  entries?: Entry[]; // Passed down for rendering
 }
 
 const BlockTree: React.FC<BlockTreeProps> = React.memo(({ 
-  nodes, depth, activeMenuId, onSetActiveMenuId, onUpdate, onAddSibling, onAddChild, onRemove, blockRefs, onNavigate
+  nodes, depth, activeMenuId, onSetActiveMenuId, activeInsertMenuId, onSetActiveInsertMenuId, onUpdate, onAddSibling, onAddChild, onRemove, blockRefs, onNavigate, entries
 }) => {
   
   const handleKeyDown = (e: React.KeyboardEvent, node: EditorBlockNode) => {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         const newNode = createSiblingNode(node);
-        onAddSibling(node.id, newNode);
+        onAddSibling(node.id, newNode, 'after');
     }
     if (e.key === 'Backspace' && (!node.content || node.content === '') && node.type === 'li') {
         e.preventDefault();
@@ -140,16 +241,23 @@ const BlockTree: React.FC<BlockTreeProps> = React.memo(({
     }
     if (e.key === 'ArrowUp') {
         const target = e.target as HTMLTextAreaElement | HTMLInputElement;
-        if (target.selectionStart === 0 && target.selectionEnd === 0) {
+        if (target && target.selectionStart === 0 && target.selectionEnd === 0) {
+            e.preventDefault();
+            onNavigate(node.id, 'up');
+        } else if (!target) {
+            // Handle non-input blocks
             e.preventDefault();
             onNavigate(node.id, 'up');
         }
     }
     if (e.key === 'ArrowDown') {
         const target = e.target as HTMLTextAreaElement | HTMLInputElement;
-        if (target.selectionStart === (target.value || '').length) {
+        if (target && target.selectionStart === (target.value || '').length) {
             e.preventDefault();
             onNavigate(node.id, 'down');
+        } else if (!target) {
+            e.preventDefault();
+             onNavigate(node.id, 'down');
         }
     }
   };
@@ -168,11 +276,14 @@ const BlockTree: React.FC<BlockTreeProps> = React.memo(({
         }
         const displayIndex = currentListIndex;
 
+        // Apply z-index boost when menu is active to prevent lower elements from capturing mouse events
+        const zIndexClass = (activeMenuId === node.id || activeInsertMenuId === node.id) ? 'z-30' : 'z-auto';
+
         return (
-            <div key={node.id} className="relative animate-fade-in group/block">
+            <div key={node.id} className={`relative animate-fade-in group/block ${zIndexClass}`}>
             
             <div 
-                className={`flex items-start py-1.5 transition-all rounded-sm hover:bg-white/[0.03] relative pr-12`}
+                className={`flex items-start py-1.5 transition-all rounded-sm hover:bg-white/[0.03] relative pr-20`}
                 style={{ marginLeft: `${depth * 28}px` }} 
             >
                 {depth > 0 && <div className="absolute left-[-14px] top-0 bottom-0 w-[1px] bg-white/5 group-hover/block:bg-white/10 transition-colors"></div>}
@@ -190,44 +301,89 @@ const BlockTree: React.FC<BlockTreeProps> = React.memo(({
                         ref: (el: HTMLElement | null) => { blockRefs.current[node.id] = el; },
                         className: "w-full bg-transparent outline-none",
                         "data-block-id": node.id
-                    }, onUpdate)}
+                    }, onUpdate, entries)}
                 </div>
 
                 {/* Block Menu */}
                 <div className="absolute right-2 top-1.5 flex items-center gap-1 opacity-0 group-hover/block:opacity-100 transition-opacity z-20">
+                    
+                    {/* Insert Menu */}
+                    <div className="relative">
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onSetActiveInsertMenuId(activeInsertMenuId === node.id ? null : node.id);
+                                onSetActiveMenuId(null);
+                            }}
+                            className={`p-1 rounded-sm transition-colors ${activeInsertMenuId === node.id ? 'bg-gold text-obsidian' : 'text-parchment-dim hover:bg-white/5 hover:text-parchment'}`}
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
+                        {activeInsertMenuId === node.id && (
+                             <div className="absolute right-0 top-full mt-2 w-40 bg-obsidian-light border border-gold/20 rounded-sm shadow-2xl py-2 z-50 animate-fade-in">
+                                 <button 
+                                    onClick={(e) => { 
+                                        e.stopPropagation();
+                                        onAddSibling(node.id, createSiblingNode(node), 'before'); 
+                                        onSetActiveInsertMenuId(null); 
+                                    }} 
+                                    className="w-full text-left px-4 py-2 hover:bg-white/5 text-xs flex gap-2 text-parchment items-center transition-colors"
+                                 >
+                                     <ArrowUp className="w-3 h-3 text-gold/50"/> 向上插入
+                                 </button>
+                                 <button 
+                                    onClick={(e) => { 
+                                        e.stopPropagation();
+                                        onAddSibling(node.id, createSiblingNode(node), 'after'); 
+                                        onSetActiveInsertMenuId(null); 
+                                    }} 
+                                    className="w-full text-left px-4 py-2 hover:bg-white/5 text-xs flex gap-2 text-parchment items-center transition-colors"
+                                 >
+                                     <ArrowDown className="w-3 h-3 text-gold/50"/> 向下插入
+                                 </button>
+                             </div>
+                        )}
+                    </div>
+
+                    {/* Format / Type Conversion Menu */}
                     <div className="relative">
                         <button 
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onSetActiveMenuId(activeMenuId === node.id ? null : node.id);
+                                onSetActiveInsertMenuId(null);
                             }}
                             className={`p-1 rounded-sm transition-colors ${activeMenuId === node.id ? 'bg-gold text-obsidian' : 'text-parchment-dim hover:bg-white/5 hover:text-parchment'}`}
+                            title="更改类型"
                         >
-                            <div className="w-4 h-4 flex items-center justify-center font-bold text-[10px]">⋮</div>
+                            <Settings2 className="w-4 h-4" />
                         </button>
 
                         {activeMenuId === node.id && (
                             <div className="absolute right-0 top-full mt-2 w-56 bg-obsidian-light border border-gold/20 rounded-sm shadow-2xl py-2 z-50 animate-fade-in flex flex-col max-h-80 overflow-y-auto custom-scrollbar">
-                                <span className="px-3 py-1 text-[9px] font-bold text-parchment-dim uppercase tracking-widest font-mono">格式 / Format</span>
-                                <button onClick={() => { onUpdate(node.id, { type: 'paragraph', listStyle: undefined } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Type className="w-3 h-3"/> 文本</button>
+                                <span className="px-3 py-1 text-[9px] font-bold text-parchment-dim uppercase tracking-widest font-mono">转换类型 / CHANGE TYPE</span>
+                                <button onClick={() => { onUpdate(node.id, { type: 'paragraph', listStyle: undefined } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Type className="w-3 h-3"/> 文本 (Paragraph)</button>
                                 <button onClick={() => { onUpdate(node.id, { type: 'h1', listStyle: undefined } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Heading1 className="w-3 h-3"/> 一级标题</button>
                                 <button onClick={() => { onUpdate(node.id, { type: 'h2', listStyle: undefined } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Heading2 className="w-3 h-3"/> 二级标题</button>
                                 
                                 <div className="my-1 border-t border-white/5"></div>
-                                <span className="px-3 py-1 text-[9px] font-bold text-parchment-dim uppercase tracking-widest font-mono">列表 / Lists</span>
+                                <span className="px-3 py-1 text-[9px] font-bold text-parchment-dim uppercase tracking-widest font-mono">列表 / LISTS</span>
                                 <button onClick={() => { onUpdate(node.id, { type: 'li', listStyle: 'bullet' } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><List className="w-3 h-3"/> 无序列表</button>
                                 <button onClick={() => { onUpdate(node.id, { type: 'li', listStyle: 'number' } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><ListOrdered className="w-3 h-3"/> 有序列表</button>
                                 <button onClick={() => { onUpdate(node.id, { type: 'li', listStyle: 'task', checked: false } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><CheckSquare className="w-3 h-3"/> 任务列表</button>
 
                                 <div className="my-1 border-t border-white/5"></div>
-                                <span className="px-3 py-1 text-[9px] font-bold text-parchment-dim uppercase tracking-widest font-mono">插入 / Insert</span>
-                                <button onClick={() => { onUpdate(node.id, { type: 'quote', listStyle: undefined } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Quote className="w-3 h-3"/> 引用</button>
-                                <button onClick={() => { onUpdate(node.id, { type: 'code', listStyle: undefined } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Code className="w-3 h-3"/> 代码</button>
+                                <span className="px-3 py-1 text-[9px] font-bold text-parchment-dim uppercase tracking-widest font-mono">特殊格式 / SPECIAL</span>
+                                <button onClick={() => { onUpdate(node.id, { type: 'callout', variant: 'info' } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Terminal className="w-3 h-3"/> 系统提示 (Callout)</button>
+                                <button onClick={() => { onUpdate(node.id, { type: 'quote', listStyle: undefined } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Quote className="w-3 h-3"/> 引用 (Quote)</button>
+                                <button onClick={() => { onUpdate(node.id, { type: 'code', listStyle: undefined } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Code className="w-3 h-3"/> 代码 (Code)</button>
                                 <button onClick={() => { onUpdate(node.id, { type: 'hr', content: '' } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><Minus className="w-3 h-3"/> 分割线</button>
                                 <button onClick={() => { onUpdate(node.id, { type: 'image', src: '', alt: '' } as any); onSetActiveMenuId(null); }} className="px-4 py-2 hover:bg-white/5 text-sm flex gap-2 text-parchment"><ImageIcon className="w-3 h-3"/> 图片</button>
                             </div>
                         )}
                     </div>
+                    
+                    {/* Delete Button */}
                     <button 
                         onClick={() => onRemove(node.id)}
                         className="p-1 rounded-sm hover:bg-red-900/20 text-parchment-dim hover:text-red-400 transition-colors"
@@ -259,6 +415,7 @@ const BlockTree: React.FC<BlockTreeProps> = React.memo(({
                         <div className="w-px h-3 bg-white/20 mx-1"></div>
 
                         {/* Extras */}
+                        <button onClick={() => onAddChild(node.id, 'callout', { variant: 'info' })} className="flex items-center gap-1.5 hover:text-gold text-xs px-2 py-0.5 rounded-sm border border-transparent hover:border-gold/20 transition-all" title="系统提示"><Terminal className="w-3 h-3" /></button>
                         <button onClick={() => onAddChild(node.id, 'code')} className="flex items-center gap-1.5 hover:text-gold text-xs px-2 py-0.5 rounded-sm border border-transparent hover:border-gold/20 transition-all" title="代码块"><Code className="w-3 h-3" /></button>
                         <button onClick={() => onAddChild(node.id, 'quote')} className="flex items-center gap-1.5 hover:text-gold text-xs px-2 py-0.5 rounded-sm border border-transparent hover:border-gold/20 transition-all" title="引用"><Quote className="w-3 h-3" /></button>
                         <button onClick={() => onAddChild(node.id, 'image')} className="flex items-center gap-1.5 hover:text-gold text-xs px-2 py-0.5 rounded-sm border border-transparent hover:border-gold/20 transition-all" title="图片"><ImageIcon className="w-3 h-3" /></button>
@@ -275,15 +432,19 @@ const BlockTree: React.FC<BlockTreeProps> = React.memo(({
                         depth={depth + 1} 
                         activeMenuId={activeMenuId}
                         onSetActiveMenuId={onSetActiveMenuId}
+                        activeInsertMenuId={activeInsertMenuId}
+                        onSetActiveInsertMenuId={onSetActiveInsertMenuId}
                         onUpdate={onUpdate}
                         onAddSibling={onAddSibling}
                         onAddChild={onAddChild}
                         onRemove={onRemove}
                         blockRefs={blockRefs}
                         onNavigate={onNavigate}
+                        entries={entries}
                     />
                 </div>
             )}
+
             </div>
         );
       })}
@@ -291,9 +452,78 @@ const BlockTree: React.FC<BlockTreeProps> = React.memo(({
   );
 });
 
+// Custom Renderer for Lore Terms and Redacted Text
+const LoreTextRenderer: React.FC<{ content: string }> = ({ content }) => {
+    // Regex including {{Term}}, ||Redacted||, %%Glitch%%, ::Arcane::, [[Terminal]]
+    // Splitting by multiple groups
+    const parts = content.split(/(\{\{.*?\}\}|\|\|.*?\|\||%%.*?%%|::.*?::|\[\[.*?\]\])/g);
+
+    return (
+        <>
+            {parts.map((part, i) => {
+                // Lore Term: {{...}}
+                if (part.startsWith('{{') && part.endsWith('}}')) {
+                    const term = part.slice(2, -2);
+                    return (
+                        <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded-sm bg-cyan-900/20 border border-cyan-500/40 text-cyan-200 text-xs font-mono shadow-[0_0_5px_rgba(34,211,238,0.2)] select-none cursor-help hover:bg-cyan-900/40 transition-colors" title="术语 / Lore Term">
+                            <Hash className="w-3 h-3 opacity-50" />
+                            {term}
+                        </span>
+                    );
+                }
+                // Redacted: ||...||
+                if (part.startsWith('||') && part.endsWith('||')) {
+                    const hidden = part.slice(2, -2);
+                    return (
+                        <span key={i} className="relative group/redacted cursor-pointer mx-0.5 align-middle inline-block">
+                             <span className="opacity-0 group-hover/redacted:opacity-100 transition-opacity bg-red-950/80 text-red-200 px-1 rounded-sm text-sm font-mono border border-red-900/50">
+                                {hidden}
+                             </span>
+                             <span className="absolute inset-0 bg-parchment-dim/20 text-transparent flex items-center justify-center rounded-sm overflow-hidden group-hover/redacted:opacity-0 transition-opacity border border-white/10" style={{background: 'repeating-linear-gradient(45deg, #000, #000 5px, #222 5px, #222 10px)'}}>
+                                <span className="text-[8px] text-white/30 font-mono font-bold tracking-widest select-none">TOP_SECRET</span>
+                             </span>
+                        </span>
+                    );
+                }
+                // Glitch: %%...%%
+                if (part.startsWith('%%') && part.endsWith('%%')) {
+                   const glitchText = part.slice(2, -2);
+                   return (
+                       <span key={i} className="effect-glitch mx-1" data-text={glitchText} title="数据已损坏">
+                           {glitchText}
+                       </span>
+                   );
+                }
+                // Arcane: ::...::
+                if (part.startsWith('::') && part.endsWith('::')) {
+                   const arcaneText = part.slice(2, -2);
+                   return (
+                       <span key={i} className="effect-arcane mx-1" title="奥术真言">
+                           {arcaneText}
+                       </span>
+                   );
+                }
+                // Terminal Key: [[...]]
+                if (part.startsWith('[[') && part.endsWith(']]')) {
+                   const keyText = part.slice(2, -2);
+                   return (
+                       <span key={i} className="effect-terminal" title="终端指令">
+                           {keyText}
+                       </span>
+                   );
+                }
+
+                return <ReactMarkdown key={i} components={{p: React.Fragment}}>{part}</ReactMarkdown>;
+            })}
+        </>
+    );
+};
+
 // Preview Components matching Scriptorium style
 const markdownPreviewComponents = {
-    p: ({node, ...props}: any) => <span className="font-sans leading-relaxed text-parchment-dim" {...props} />,
+    p: ({node, children, ...props}: any) => {
+        return <p className="font-sans leading-relaxed text-parchment-dim mb-3" {...props}>{children}</p>;
+    },
     a: ({node, ...props}: any) => <a className="text-gold hover:underline underline-offset-4 decoration-gold/30" target="_blank" rel="noreferrer" {...props} />,
     table: ({node, ...props}: any) => <div className="overflow-x-auto my-4 border border-white/5 rounded-sm"><table className="min-w-full text-sm border-collapse" {...props} /></div>,
     thead: ({node, ...props}: any) => <thead className="bg-white/5 font-serif text-gold" {...props} />,
@@ -303,7 +533,7 @@ const markdownPreviewComponents = {
     input: ({node, ...props}: any) => <input type="checkbox" className="accent-gold mr-2" disabled {...props} />
 };
 
-const PreviewTree: React.FC<{ nodes: EditorBlockNode[] }> = ({ nodes }) => {
+const PreviewTree: React.FC<{ nodes: EditorBlockNode[], entries?: Entry[] }> = ({ nodes, entries }) => {
   let listIndex = 0;
   return (
     <>
@@ -326,12 +556,24 @@ const PreviewTree: React.FC<{ nodes: EditorBlockNode[] }> = ({ nodes }) => {
                 
                 {node.type === 'paragraph' && (
                     <div className="text-parchment-dim leading-relaxed mb-3 whitespace-pre-wrap font-sans">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownPreviewComponents}>
-                            {node.content}
-                        </ReactMarkdown>
+                        <LoreTextRenderer content={node.content} />
                     </div>
                 )}
                 
+                {node.type === 'callout' && (
+                    <div className={`my-6 border-l-2 p-4 rounded-r-sm ${(node as CalloutBlock).variant === 'danger' ? 'bg-red-950/20 border-red-500' : (node as CalloutBlock).variant === 'warning' ? 'bg-amber-950/20 border-amber-500' : (node as CalloutBlock).variant === 'success' ? 'bg-emerald-950/20 border-emerald-500' : 'bg-blue-950/20 border-blue-500'}`}>
+                        <div className="flex items-center gap-2 mb-2 font-mono text-xs font-bold uppercase tracking-widest opacity-80">
+                            { (node as CalloutBlock).variant === 'danger' && <><ShieldAlert className="w-4 h-4 text-red-500" /> SYSTEM_ALERT // CRITICAL</> }
+                            { (node as CalloutBlock).variant === 'warning' && <><AlertTriangle className="w-4 h-4 text-amber-500" /> SYSTEM_WARNING</> }
+                            { (node as CalloutBlock).variant === 'info' && <><Terminal className="w-4 h-4 text-blue-500" /> SYSTEM_LOG</> }
+                            { (node as CalloutBlock).variant === 'success' && <><Activity className="w-4 h-4 text-emerald-500" /> SYSTEM_STATUS_OK</> }
+                        </div>
+                        <div className="text-sm font-mono opacity-90 text-parchment">
+                            <LoreTextRenderer content={node.content} />
+                        </div>
+                    </div>
+                )}
+
                 {node.type === 'quote' && (
                     <blockquote className="border-l-2 border-gold/40 pl-6 py-3 my-6 text-gold/80 italic bg-gold/5 rounded-r font-serif">
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownPreviewComponents}>
@@ -355,6 +597,17 @@ const PreviewTree: React.FC<{ nodes: EditorBlockNode[] }> = ({ nodes }) => {
                     </div>
                 )}
 
+                {node.type === 'reference-entry' && entries && (
+                     <div className="my-6 max-w-sm">
+                         {(node as ReferenceEntryBlock).note && <div className="text-[10px] font-mono text-parchment-dim/60 mb-1 ml-1">引用备注: {(node as ReferenceEntryBlock).note}</div>}
+                         {(() => {
+                             const referencedEntry = entries.find(e => e.id === (node as ReferenceEntryBlock).entryId);
+                             if (!referencedEntry) return <div className="text-xs text-red-500 border border-dashed border-red-500 p-2">引用档案丢失</div>;
+                             return <ReferenceCard entry={referencedEntry} isPreview={true} />;
+                         })()}
+                     </div>
+                )}
+
                 {node.type === 'li' && (
                     <div className="flex gap-3 mb-1.5">
                         <div className="shrink-0 mt-1.5">
@@ -367,9 +620,7 @@ const PreviewTree: React.FC<{ nodes: EditorBlockNode[] }> = ({ nodes }) => {
                             )}
                         </div>
                         <div className={`text-parchment-dim flex-1 font-sans ${(node as any).checked ? 'line-through opacity-40' : ''}`}>
-                            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownPreviewComponents}>
-                                {node.content}
-                            </ReactMarkdown>
+                            <LoreTextRenderer content={node.content} />
                         </div>
                     </div>
                 )}
@@ -377,7 +628,7 @@ const PreviewTree: React.FC<{ nodes: EditorBlockNode[] }> = ({ nodes }) => {
 
             {node.children.length > 0 && (
             <div className="ml-4 border-l border-white/5 pl-6">
-                <PreviewTree nodes={node.children} />
+                <PreviewTree nodes={node.children} entries={entries} />
             </div>
             )}
           </div>
@@ -394,18 +645,20 @@ interface EditorViewProps {
   onBack: () => void;
   onSave: (entry: Omit<Entry, 'id' | 'createdAt' | 'likes' | 'author'>) => void;
   isLightTheme: boolean;
+  onToggleTheme: () => void;
   initialCategory?: Category;
+  entries?: Entry[]; // Make optional to not break tests if any, but required for Linking features
 }
 
-export const EditorView: React.FC<EditorViewProps> = ({ onBack, onSave, isLightTheme, initialCategory }) => {
+export const EditorView: React.FC<EditorViewProps> = ({ onBack, onSave, isLightTheme, initialCategory, onToggleTheme, entries = [] }) => {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<Category>(initialCategory || Category.CREATURE);
   const [tags, setTags] = useState('');
   
-  // New Attributes
-  const [realism, setRealism] = useState<number>(3);
-  const [risk, setRisk] = useState<number>(1);
-  const [anomalous, setAnomalous] = useState<number>(1);
+  // Default values for ratings as they are hidden for author
+  const realism = 3;
+  const risk = 1;
+  const anomalous = 1;
 
   const { 
     rootBlocks, 
@@ -417,12 +670,18 @@ export const EditorView: React.FC<EditorViewProps> = ({ onBack, onSave, isLightT
   } = useOutlineTree([{ id: 'root-1', type: 'h1', content: '', children: [] } as any]);
   
   const [activeMenuBlockId, setActiveMenuBlockId] = useState<string | null>(null);
+  const [activeInsertMenuId, setActiveInsertMenuId] = useState<string | null>(null);
   const blockRefs = useRef<Record<string, HTMLElement | null>>({});
   const [focusId, setFocusId] = useState<string | null>(null);
 
   const [showTableDialog, setShowTableDialog] = useState(false);
   const [tableConfig, setTableConfig] = useState({ rows: 3, cols: 3 });
   const [insertionTarget, setInsertionTarget] = useState<{ id: string, start: number, end: number } | null>(null);
+
+  // Reference Picker State
+  const [showReferencePicker, setShowReferencePicker] = useState(false);
+  const [referenceSearchQuery, setReferenceSearchQuery] = useState('');
+  const [referenceInsertTargetId, setReferenceInsertTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (focusId && blockRefs.current[focusId]) {
@@ -433,8 +692,8 @@ export const EditorView: React.FC<EditorViewProps> = ({ onBack, onSave, isLightT
     }
   }, [focusId, rootBlocks]);
 
-  const handleAddSibling = useCallback((targetId: string, newNode: EditorBlockNode) => {
-      addSibling(targetId, newNode);
+  const handleAddSibling = useCallback((targetId: string, newNode: EditorBlockNode, direction: 'before' | 'after' = 'after') => {
+      addSibling(targetId, newNode, direction);
       setFocusId(newNode.id);
   }, [addSibling]);
 
@@ -444,7 +703,7 @@ export const EditorView: React.FC<EditorViewProps> = ({ onBack, onSave, isLightT
       setFocusId(newId);
   }, [addChild]);
 
-  const handleFormat = (formatType: 'bold' | 'italic' | 'link' | 'code') => {
+  const handleFormat = (formatType: 'bold' | 'italic' | 'link' | 'code' | 'term' | 'redacted' | 'glitch' | 'arcane' | 'terminal') => {
     const activeEl = document.activeElement as HTMLTextAreaElement;
     if (!activeEl || activeEl.tagName !== 'TEXTAREA') return;
 
@@ -468,33 +727,36 @@ export const EditorView: React.FC<EditorViewProps> = ({ onBack, onSave, isLightT
         return;
     }
 
-    const isWrapped = (wrapper: string) => {
+    const isWrapped = (wrapperStart: string, wrapperEnd: string) => {
         const before = text.substring(0, start);
         const after = text.substring(end);
-        return before.endsWith(wrapper) && after.startsWith(wrapper);
+        return before.endsWith(wrapperStart) && after.startsWith(wrapperEnd);
     };
 
-    let currentWrapper = '';
-    if (isWrapped('**')) currentWrapper = '**';
-    else if (isWrapped('*')) currentWrapper = '*';
-    else if (isWrapped('`')) currentWrapper = '`';
+    let wrapperStart = '';
+    let wrapperEnd = '';
 
-    const targetWrapper = formatType === 'bold' ? '**' : formatType === 'italic' ? '*' : '`';
+    if (formatType === 'bold') { wrapperStart = '**'; wrapperEnd = '**'; }
+    else if (formatType === 'italic') { wrapperStart = '*'; wrapperEnd = '*'; }
+    else if (formatType === 'code') { wrapperStart = '`'; wrapperEnd = '`'; }
+    else if (formatType === 'term') { wrapperStart = '{{'; wrapperEnd = '}}'; }
+    else if (formatType === 'redacted') { wrapperStart = '||'; wrapperEnd = '||'; }
+    else if (formatType === 'glitch') { wrapperStart = '%%'; wrapperEnd = '%%'; }
+    else if (formatType === 'arcane') { wrapperStart = '::'; wrapperEnd = '::'; }
+    else if (formatType === 'terminal') { wrapperStart = '[['; wrapperEnd = ']]'; }
 
     let newText = text;
     let newStart = start;
     let newEnd = end;
 
-    if (currentWrapper) {
-        newText = text.substring(0, start - currentWrapper.length) + selected + text.substring(end + currentWrapper.length);
-        newStart = start - currentWrapper.length;
-        newEnd = end - currentWrapper.length;
-    }
-
-    if (currentWrapper !== targetWrapper) {
-        newText = newText.substring(0, newStart) + targetWrapper + selected + targetWrapper + newText.substring(newEnd);
-        newStart += targetWrapper.length;
-        newEnd += targetWrapper.length;
+    if (isWrapped(wrapperStart, wrapperEnd)) {
+        newText = text.substring(0, start - wrapperStart.length) + selected + text.substring(end + wrapperEnd.length);
+        newStart = start - wrapperStart.length;
+        newEnd = end - wrapperEnd.length;
+    } else {
+        newText = newText.substring(0, newStart) + wrapperStart + selected + wrapperEnd + newText.substring(newEnd);
+        newStart += wrapperStart.length;
+        newEnd += wrapperStart.length;
     }
 
     const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
@@ -518,6 +780,47 @@ export const EditorView: React.FC<EditorViewProps> = ({ onBack, onSave, isLightT
         alert("请先选择一个文本块。");
     }
   };
+
+  // Triggered by Toolbar Button
+  const handleOpenReferencePicker = () => {
+      const activeEl = document.activeElement as HTMLTextAreaElement;
+      if (activeEl && activeEl.dataset.blockId) {
+          setReferenceInsertTargetId(activeEl.dataset.blockId);
+          setShowReferencePicker(true);
+      } else {
+          // If no focus, insert at the end? Or alert.
+          // Let's default to appending after the last block if nothing selected, or just alert.
+           alert("请先把光标放在要插入的位置。");
+      }
+  };
+
+  const handleSelectReferenceEntry = (entry: Entry) => {
+      if (!referenceInsertTargetId) return;
+
+      const newRefBlock: ReferenceEntryBlock = {
+          id: generateId(),
+          type: 'reference-entry',
+          entryId: entry.id,
+          content: '', // unused
+          children: []
+      };
+
+      // Insert AFTER the current block
+      handleAddSibling(referenceInsertTargetId, newRefBlock, 'after');
+      
+      setShowReferencePicker(false);
+      setReferenceInsertTargetId(null);
+      setReferenceSearchQuery('');
+  };
+
+  const filteredReferenceEntries = useMemo(() => {
+      if (!referenceSearchQuery) return entries.slice(0, 5); // Show top 5 by default
+      return entries.filter(e => 
+          e.title.toLowerCase().includes(referenceSearchQuery.toLowerCase()) || 
+          e.category.includes(referenceSearchQuery)
+      );
+  }, [entries, referenceSearchQuery]);
+
 
   const findNodeRecursive = (nodes: EditorBlockNode[], id: string): EditorBlockNode | null => {
       for (const node of nodes) {
@@ -639,7 +942,10 @@ created_at: ${new Date().toISOString()}
   };
 
   useEffect(() => {
-    const handleClickOutside = () => setActiveMenuBlockId(null);
+    const handleClickOutside = () => {
+        setActiveMenuBlockId(null);
+        setActiveInsertMenuId(null);
+    };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
@@ -663,11 +969,30 @@ created_at: ${new Date().toISOString()}
               <button onMouseDown={e => e.preventDefault()} onClick={() => handleFormat('bold')} className="p-1.5 hover:bg-white/5 rounded-sm text-parchment-dim hover:text-parchment" title="加粗"><Bold className="w-3.5 h-3.5"/></button>
               <button onMouseDown={e => e.preventDefault()} onClick={() => handleFormat('italic')} className="p-1.5 hover:bg-white/5 rounded-sm text-parchment-dim hover:text-parchment" title="斜体"><Italic className="w-3.5 h-3.5"/></button>
               <button onMouseDown={e => e.preventDefault()} onClick={() => handleFormat('code')} className="p-1.5 hover:bg-white/5 rounded-sm text-parchment-dim hover:text-parchment" title="代码"><Code className="w-3.5 h-3.5"/></button>
+              
+              <div className="w-px h-3 bg-white/10 mx-1"></div>
+              
+              {/* Specialized Lore Tools */}
+              <button onMouseDown={e => e.preventDefault()} onClick={() => handleFormat('term')} className="p-1.5 hover:bg-white/5 rounded-sm text-cyan-400/70 hover:text-cyan-400" title="插入术语"><Sparkles className="w-3.5 h-3.5"/></button>
+              <button onMouseDown={e => e.preventDefault()} onClick={() => handleFormat('redacted')} className="p-1.5 hover:bg-white/5 rounded-sm text-red-400/70 hover:text-red-400" title="绝密遮盖"><ScanEye className="w-3.5 h-3.5"/></button>
+              <button onMouseDown={e => e.preventDefault()} onClick={() => handleFormat('glitch')} className="p-1.5 hover:bg-white/5 rounded-sm text-purple-400/70 hover:text-purple-400" title="数据损坏 (Glitch)"><Zap className="w-3.5 h-3.5"/></button>
+              <button onMouseDown={e => e.preventDefault()} onClick={() => handleFormat('arcane')} className="p-1.5 hover:bg-white/5 rounded-sm text-indigo-300/70 hover:text-indigo-300" title="奥术真言 (Arcane)"><Command className="w-3.5 h-3.5"/></button>
+              <button onMouseDown={e => e.preventDefault()} onClick={() => handleFormat('terminal')} className="p-1.5 hover:bg-white/5 rounded-sm text-green-400/70 hover:text-green-400" title="终端指令 (Terminal)"><Keyboard className="w-3.5 h-3.5"/></button>
+
               <div className="w-px h-3 bg-white/10 mx-1"></div>
               <button onMouseDown={e => e.preventDefault()} onClick={handleOpenTableDialog} className="p-1.5 hover:bg-white/5 rounded-sm text-parchment-dim hover:text-parchment" title="插入表格"><Table className="w-3.5 h-3.5"/></button>
+              <button onMouseDown={e => e.preventDefault()} onClick={handleOpenReferencePicker} className="p-1.5 hover:bg-white/5 rounded-sm text-parchment-dim hover:text-parchment" title="插入关联档案"><Link2 className="w-3.5 h-3.5"/></button>
           </div>
 
           <div className="flex items-center gap-3">
+             {/* Theme Toggle */}
+             <button 
+               onClick={onToggleTheme}
+               className="p-2 rounded-sm text-parchment-dim hover:text-gold hover:bg-white/5 transition-colors border border-transparent hover:border-gold/10 mr-2"
+               title={isLightTheme ? "切换到暗色模式" : "切换到亮色模式"}
+             >
+               {isLightTheme ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+             </button>
             <button onClick={() => alert("草稿已保存到本地。")} className="hidden md:flex items-center gap-2 bg-transparent border border-white/10 hover:border-gold/30 text-parchment-dim hover:text-gold text-xs font-medium px-4 py-1.5 rounded-sm transition-all"><Save className="w-3.5 h-3.5" /><span>保存草稿</span></button>
             <button onClick={handlePublish} className="flex items-center gap-2 bg-gold hover:bg-[#c5a676] text-obsidian font-bold px-5 py-1.5 rounded-sm transition-transform active:scale-95 text-xs uppercase tracking-wider shadow-lg"><Upload className="w-3.5 h-3.5" /><span>归档</span></button>
           </div>
@@ -680,49 +1005,45 @@ created_at: ${new Date().toISOString()}
         <div className={`flex-1 w-1/2 overflow-y-auto custom-scrollbar p-8 md:p-12 border-r border-gold/10 ${isLightTheme ? 'bg-[#f7f5ef]' : 'bg-[#0c0c0e]'}`}>
             <div className="max-w-3xl mx-auto animate-slide-up pb-20">
                 <div className="bg-white/[0.01] border-b border-white/5 pb-8 mb-8">
-                    <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="档案标题..." className="w-full bg-transparent text-4xl font-serif text-parchment placeholder-parchment-dim/20 outline-none mb-6"/>
+                    <input 
+                        type="text" 
+                        value={title} 
+                        onChange={e => setTitle(e.target.value)} 
+                        placeholder="档案标题..." 
+                        className={`w-full bg-transparent text-4xl font-serif font-bold outline-none mb-6 placeholder-opacity-30 ${isLightTheme ? 'text-obsidian placeholder-obsidian' : 'text-parchment placeholder-parchment-dim'}`}
+                    />
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         <div>
-                            <label className="block text-[10px] font-bold text-gold/60 uppercase tracking-widest mb-2 font-mono">归档分类 / Classification</label>
-                            <select value={category} onChange={e => setCategory(e.target.value as Category)} className="w-full bg-charcoal/40 border border-white/10 rounded-sm px-3 py-2 text-sm text-parchment focus:border-gold/50 outline-none cursor-pointer hover:bg-white/5 transition-colors font-serif">{Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}</select>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-gold/60 uppercase tracking-widest mb-2 font-mono">索引标签 / Tags</label>
-                            <input type="text" value={tags} onChange={e => setTags(e.target.value)} placeholder="逗号分隔..." className="w-full bg-charcoal/40 border border-white/10 rounded-sm px-3 py-2 text-sm text-parchment focus:border-gold/50 outline-none font-mono placeholder:text-parchment-dim/20"/>
-                        </div>
-                    </div>
-
-                    {/* New Parameter Sliders */}
-                    <div className="bg-white/5 rounded-sm p-4 border border-white/5 space-y-6">
-                        {/* Realism */}
-                        <div>
-                            <div className="flex justify-between mb-1.5">
-                                <label className="text-[10px] font-bold text-gold/80 uppercase tracking-widest flex items-center gap-1.5 font-mono"><Brain className="w-3 h-3" /> 真实度 / Realism</label>
-                                <span className="text-[10px] text-parchment font-mono">{realism} / 5</span>
+                            <label className={`block text-[10px] font-bold uppercase tracking-widest mb-2 font-mono ${isLightTheme ? 'text-stone-500' : 'text-gold/60'}`}>归档分类 / Classification</label>
+                            <div className="relative">
+                                <select 
+                                    value={category} 
+                                    onChange={e => setCategory(e.target.value as Category)} 
+                                    className={`w-full border rounded-sm px-3 py-2 text-sm outline-none cursor-pointer transition-colors font-serif appearance-none ${
+                                        isLightTheme 
+                                            ? 'bg-white border-stone-300 text-stone-800 focus:border-amber-500 shadow-sm' 
+                                            : 'bg-charcoal/40 border-white/10 text-parchment focus:border-gold/50'
+                                    }`}
+                                    style={{ colorScheme: isLightTheme ? 'light' : 'dark' }}
+                                >
+                                    {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
                             </div>
-                            <input type="range" min="1" max="5" value={realism} onChange={(e) => setRealism(Number(e.target.value))} className="w-full accent-gold h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer mb-2"/>
-                            <div className="text-xs text-parchment-dim/80 font-serif italic border-l-2 border-gold/30 pl-2">{REALISM_DESCRIPTIONS[realism]}</div>
                         </div>
-
-                        {/* Risk */}
                         <div>
-                            <div className="flex justify-between mb-1.5">
-                                <label className="text-[10px] font-bold text-red-400 uppercase tracking-widest flex items-center gap-1.5 font-mono"><AlertTriangle className="w-3 h-3" /> 风险等级 / Risk</label>
-                                <span className="text-[10px] text-parchment font-mono">{risk} / 8</span>
-                            </div>
-                            <input type="range" min="1" max="8" value={risk} onChange={(e) => setRisk(Number(e.target.value))} className="w-full accent-red-500 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer mb-2"/>
-                            <div className="text-xs text-parchment-dim/80 font-serif italic border-l-2 border-red-500/30 pl-2">{RISK_DESCRIPTIONS[risk]}</div>
-                        </div>
-
-                        {/* Anomalous */}
-                        <div>
-                            <div className="flex justify-between mb-1.5">
-                                <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-1.5 font-mono"><Activity className="w-3 h-3" /> 异象刻度 / Anomalous</label>
-                                <span className="text-[10px] text-parchment font-mono">{anomalous} / 7</span>
-                            </div>
-                            <input type="range" min="1" max="7" value={anomalous} onChange={(e) => setAnomalous(Number(e.target.value))} className="w-full accent-cyan-400 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer mb-2"/>
-                            <div className="text-xs text-parchment-dim/80 font-serif italic border-l-2 border-cyan-400/30 pl-2">{ANOMALOUS_DESCRIPTIONS[anomalous]}</div>
+                            <label className={`block text-[10px] font-bold uppercase tracking-widest mb-2 font-mono ${isLightTheme ? 'text-stone-500' : 'text-gold/60'}`}>索引标签 / Tags</label>
+                            <input 
+                                type="text" 
+                                value={tags} 
+                                onChange={e => setTags(e.target.value)} 
+                                placeholder="逗号分隔..." 
+                                className={`w-full border rounded-sm px-3 py-2 text-sm outline-none font-mono transition-colors ${
+                                    isLightTheme 
+                                        ? 'bg-white border-stone-300 text-stone-800 focus:border-amber-500 placeholder-stone-400 shadow-sm' 
+                                        : 'bg-charcoal/40 border-white/10 text-parchment focus:border-gold/50 placeholder:text-parchment-dim/20'
+                                }`}
+                            />
                         </div>
                     </div>
                 </div>
@@ -734,12 +1055,15 @@ created_at: ${new Date().toISOString()}
                         depth={0}
                         activeMenuId={activeMenuBlockId}
                         onSetActiveMenuId={setActiveMenuBlockId}
+                        activeInsertMenuId={activeInsertMenuId}
+                        onSetActiveInsertMenuId={setActiveInsertMenuId}
                         onUpdate={updateNode}
                         onAddSibling={handleAddSibling}
                         onAddChild={handleAddChild}
                         onRemove={removeNode}
                         blockRefs={blockRefs}
                         onNavigate={handleNavigate}
+                        entries={entries}
                     />
                     <button onClick={() => rootBlocks.length > 0 && handleAddSibling(rootBlocks[rootBlocks.length-1].id, { id: generateId(), type: 'h1', content: '', children: [] } as any)} className="w-full py-4 mt-8 border border-dashed border-white/5 rounded-sm text-parchment-dim/40 hover:text-gold hover:border-gold/30 flex items-center justify-center gap-2 transition-all group z-10 relative bg-white/[0.01]">
                         <Plus className="w-4 h-4" /> 新增章节
@@ -761,24 +1085,8 @@ created_at: ${new Date().toISOString()}
                      {tags && tags.split(/[,，]/).map(t => <span key={t} className="text-[10px] text-parchment-dim bg-white/5 px-1.5 py-0.5 font-mono">#{t}</span>)}
                 </div>
                 
-                {/* Preview of new parameters */}
-                <div className="flex gap-4 mb-10 border-b border-white/5 pb-6">
-                    <div className="flex-1 bg-white/5 p-3 rounded-sm border border-white/5">
-                         <div className="text-[9px] text-gold uppercase tracking-wider mb-1">真实度</div>
-                         <div className="flex gap-1">{Array.from({length: 5}).map((_, i) => <div key={i} className={`h-1.5 flex-1 rounded-sm ${i < realism ? 'bg-gold' : 'bg-white/10'}`}></div>)}</div>
-                    </div>
-                    <div className="flex-1 bg-white/5 p-3 rounded-sm border border-white/5">
-                         <div className="text-[9px] text-red-400 uppercase tracking-wider mb-1">风险等级</div>
-                         <div className="h-1.5 w-full bg-white/10 rounded-sm overflow-hidden"><div className="h-full bg-red-500" style={{width: `${(risk/8)*100}%`}}></div></div>
-                    </div>
-                    <div className="flex-1 bg-white/5 p-3 rounded-sm border border-white/5">
-                         <div className="text-[9px] text-cyan-400 uppercase tracking-wider mb-1">异象刻度</div>
-                         <div className="h-1.5 w-full bg-white/10 rounded-sm overflow-hidden"><div className="h-full bg-cyan-400" style={{width: `${(anomalous/7)*100}%`}}></div></div>
-                    </div>
-                </div>
-
                 <div className="prose prose-invert max-w-none">
-                    <PreviewTree nodes={rootBlocks} />
+                    <PreviewTree nodes={rootBlocks} entries={entries} />
                 </div>
 
                 <div className="mt-16 pt-8 border-t border-white/5 flex justify-center">
@@ -806,6 +1114,61 @@ created_at: ${new Date().toISOString()}
                   <div className="flex justify-end gap-2">
                       <button onClick={() => setShowTableDialog(false)} className="px-3 py-1.5 text-xs uppercase tracking-wider text-parchment-dim hover:text-white">取消</button>
                       <button onClick={insertTable} className="px-3 py-1.5 text-xs bg-gold text-obsidian font-bold rounded-sm uppercase tracking-wider hover:bg-[#c5a676]">插入</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Reference Picker Dialog */}
+      {showReferencePicker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+              <div className="bg-obsidian border border-gold/20 rounded-sm w-[500px] max-h-[80vh] shadow-2xl animate-fade-in flex flex-col">
+                  <div className="p-4 border-b border-white/10 flex items-center gap-3">
+                      <Search className="w-4 h-4 text-gold/60" />
+                      <input 
+                         type="text" 
+                         autoFocus
+                         value={referenceSearchQuery}
+                         onChange={(e) => setReferenceSearchQuery(e.target.value)}
+                         placeholder="搜索档案库 / Search Archive..." 
+                         className="flex-1 bg-transparent text-parchment outline-none font-serif text-lg placeholder-white/20"
+                      />
+                      <button onClick={() => setShowReferencePicker(false)} className="text-parchment-dim hover:text-white"><X className="w-4 h-4" /></button>
+                  </div>
+                  
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-2 bg-obsidian-light/50">
+                      {filteredReferenceEntries.length === 0 ? (
+                          <div className="text-center py-8 text-parchment-dim/40 italic font-serif">未找到匹配档案</div>
+                      ) : (
+                          <div className="space-y-2">
+                              {filteredReferenceEntries.map(entry => (
+                                  <div 
+                                    key={entry.id}
+                                    onClick={() => handleSelectReferenceEntry(entry)}
+                                    className="p-3 hover:bg-white/5 border border-transparent hover:border-gold/20 rounded-sm cursor-pointer transition-all flex items-start gap-3 group"
+                                  >
+                                      <div className={`w-1 h-full min-h-[40px] bg-gradient-to-b ${CATEGORY_COLORS[entry.category]} opacity-40 group-hover:opacity-100 rounded-full`}></div>
+                                      <div className="flex-1">
+                                          <div className="flex justify-between items-center mb-1">
+                                             <h4 className="font-serif text-parchment font-bold text-sm">{entry.title}</h4>
+                                             <span className="text-[9px] font-mono text-parchment-dim/50 border border-white/5 px-1 rounded-sm uppercase tracking-wider">{entry.category}</span>
+                                          </div>
+                                          <p className="text-xs text-parchment-dim/60 line-clamp-2 mb-2 font-serif italic">{entry.content.slice(0, 100)}</p>
+                                          
+                                          {/* Mini Stats Preview */}
+                                          <div className="flex gap-2">
+                                              <div className="h-1 flex-1 bg-white/5 rounded-full overflow-hidden flex" title="Realism"><div className="bg-gold h-full" style={{width: `${(entry.realism/5)*100}%`}}></div></div>
+                                              <div className="h-1 flex-1 bg-white/5 rounded-full overflow-hidden flex" title="Risk"><div className="bg-red-500 h-full" style={{width: `${(entry.risk/8)*100}%`}}></div></div>
+                                              <div className="h-1 flex-1 bg-white/5 rounded-full overflow-hidden flex" title="Anomalous"><div className="bg-cyan-400 h-full" style={{width: `${(entry.anomalous/7)*100}%`}}></div></div>
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+                  </div>
+                  <div className="p-2 border-t border-white/10 bg-black/20 text-center">
+                      <p className="text-[9px] font-mono text-parchment-dim/30">SEARCH_API // v.1.0 // LOCAL_CACHE</p>
                   </div>
               </div>
           </div>

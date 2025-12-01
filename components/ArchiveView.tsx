@@ -301,7 +301,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                             
                             // Theme-aware bar colors
                             const trackColor = isLightTheme ? 'bg-black/10' : 'bg-white/5';
-                            const mysticColor = isLightTheme ? 'bg-amber-600' : 'bg-gold/60';
+                            const mysticColor = isLightTheme ? 'bg-amber-600' : 'bg-[rgba(232,201,155,0.6)]';
                             const riskColor = isLightTheme ? 'bg-red-600' : 'bg-red-500/50';
                             const realismColor = isLightTheme ? 'bg-blue-600' : 'bg-blue-400/50';
 
