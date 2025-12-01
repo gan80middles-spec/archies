@@ -1,0 +1,5 @@
+{
+  "name": "OmniArchive",
+  "description": "A dual-interface world-building repository. Browse the visual archives or access the terminal mainframe to upload your own biological, technological, and environmental data.",
+  "requestFramePermissions": []
+}
