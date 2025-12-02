@@ -12,6 +12,26 @@ export enum Category {
   CULTURE = '文明谱系'     // Religion, Society, Economy, Art
 }
 
+export enum TermType {
+  CONCEPT = '魔法/概念',
+  FACTION = '组织/阵营',
+  PERSON = '人物/角色',
+  LOCATION = '地名/坐标',
+  ITEM = '物品/造物',
+  OTHER = '其他/杂项'
+}
+
+export type TermStatus = 'pending' | 'term_only' | 'with_entry';
+
+export interface Term {
+  id: string;
+  name: string;
+  type: TermType;
+  description: string; // Short definition (1-2 sentences)
+  status: TermStatus;
+  entryId?: string | null; // Link to a full Entry if status is 'with_entry'
+}
+
 export interface User {
   id: string;
   username: string;
@@ -192,3 +212,24 @@ export const ANOMALOUS_DESCRIPTIONS: Record<number, string> = {
   6: "禁知·侵蚀：理解本身伤害认知，导致精神污染。",
   7: "超认·绝对他者：超出认知框架，不可名状的终极秘密。"
 };
+
+// --- Editor Workspace Types ---
+
+export type EditorTabMode = "new" | "existing";
+
+export interface EditorTab {
+  /** Internal Tab ID */
+  id: string;
+  /** Existing Entry ID (undefined if new) */
+  entryId?: string;
+  /** Linked Term ID (if created from a term) */
+  termId?: string;
+  /** Tab Title */
+  title: string;
+  /** Tab Mode */
+  mode: EditorTabMode;
+  /** Unsaved Changes? */
+  isDirty: boolean;
+  /** Initial Category (for new tabs) */
+  initialCategory?: Category;
+}

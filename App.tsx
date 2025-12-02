@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { ArchiveView } from './components/ArchiveView';
-import { EditorView } from './components/EditorView';
+import { EditorWorkspace } from './components/EditorWorkspace';
 import { LoginView } from './components/LoginView';
 import { ProfileView } from './components/ProfileView';
-import { INITIAL_ENTRIES } from './constants';
-import { Entry, User, Category } from './types';
+import { INITIAL_ENTRIES, INITIAL_TERMS } from './constants';
+import { Entry, User, Category, Term } from './types';
 
 type ViewState = 'ARCHIVE' | 'EDITOR' | 'PROFILE';
 
@@ -12,111 +13,145 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>('ARCHIVE');
   const [entries, setEntries] = useState<Entry[]>(INITIAL_ENTRIES);
+  const [terms, setTerms] = useState<Term[]>(INITIAL_TERMS);
   const [isLightTheme, setIsLightTheme] = useState(false);
-  const [editorInitialCategory, setEditorInitialCategory] = useState<Category | undefined>(undefined);
-
-  // Apply theme to body
-  useEffect(() => {
-    if (isLightTheme) {
-      document.body.classList.add('light-theme');
-    } else {
-      document.body.classList.remove('light-theme');
-    }
-  }, [isLightTheme]);
+  
+  // Workspace specific state triggers
+  const [initialOpenEntryId, setInitialOpenEntryId] = useState<string | undefined>(undefined);
+  const [initialOpenTermName, setInitialOpenTermName] = useState<string | undefined>(undefined);
 
   const toggleTheme = () => {
-    setIsLightTheme(!isLightTheme);
+      setIsLightTheme(prev => {
+          if (!prev) document.body.classList.add('light-theme');
+          else document.body.classList.remove('light-theme');
+          return !prev;
+      });
   };
 
-  const handleNavigateToEditor = (category?: Category) => {
-    setEditorInitialCategory(category);
-    setCurrentView('EDITOR');
-  };
-
-  const handleUpload = (newEntryData: Omit<Entry, 'id' | 'createdAt' | 'likes' | 'author'>) => {
-    const newEntry: Entry = {
-      ...newEntryData,
-      id: Date.now().toString(),
-      createdAt: Date.now(),
-      likes: 0,
-      author: user?.username || '未知记录员',
-      authorId: user?.id,
-      tags: newEntryData.tags || []
-    };
-    setEntries(prev => [newEntry, ...prev]);
+  const handleLogin = (user: User) => {
+    setUser(user);
     setCurrentView('ARCHIVE');
   };
 
-  const handleLike = (id: string) => {
-    if (!user) return;
-
-    const isLiked = user.favorites.includes(id);
-    
-    // Update Entry Like Count
-    setEntries(prev => prev.map(entry => 
-      entry.id === id ? { ...entry, likes: entry.likes + (isLiked ? -1 : 1) } : entry
-    ));
-
-    // Update User Favorites
-    setUser(prev => {
-        if (!prev) return null;
-        const newFavorites = isLiked 
-            ? prev.favorites.filter(favId => favId !== id)
-            : [...prev.favorites, id];
-        return { ...prev, favorites: newFavorites };
-    });
+  const handleNavigateToEditor = (category?: Category, title?: string) => {
+    setInitialOpenEntryId(undefined);
+    setInitialOpenTermName(undefined);
+    setCurrentView('EDITOR');
   };
 
-  const handleUpdateProfile = (updatedUser: Partial<User>) => {
-      setUser(prev => prev ? { ...prev, ...updatedUser } : null);
+  const handleNavigateToProfile = () => {
+    setCurrentView('PROFILE');
   };
 
   const handleLogout = () => {
-      setUser(null);
-      setCurrentView('ARCHIVE');
+    setUser(null);
+    setCurrentView('ARCHIVE');
+  };
+
+  const handleSaveEntry = (newEntryData: Omit<Entry, 'id' | 'createdAt' | 'likes' | 'author'>) => {
+      const newEntry: Entry = {
+          ...newEntryData,
+          id: Date.now().toString(),
+          createdAt: Date.now(),
+          likes: 0,
+          author: user ? user.username : 'Anonymous',
+          authorId: user ? user.id : 'unknown'
+      };
+      setEntries(prev => [newEntry, ...prev]);
+      return newEntry.id;
+  };
+
+  const handleUpdateProfile = (data: Partial<User>) => {
+      if (!user) return;
+      setUser({ ...user, ...data });
+  };
+
+  const handleLike = (id: string) => {
+      if (!user) return;
+      const isLiked = user.favorites.includes(id);
+      
+      // Update User State
+      setUser(prev => prev ? ({
+          ...prev,
+          favorites: isLiked 
+            ? prev.favorites.filter(fid => fid !== id)
+            : [...prev.favorites, id]
+      }) : null);
+
+      // Update Entry State (optimistic UI)
+      setEntries(prev => prev.map(e => {
+          if (e.id === id) {
+              return { ...e, likes: isLiked ? e.likes - 1 : e.likes + 1 };
+          }
+          return e;
+      }));
+  };
+
+  const handleUpdateTerm = (updatedTerm: Term) => {
+      setTerms(prev => {
+          // If ID exists, update
+          if (prev.find(t => t.id === updatedTerm.id)) {
+              return prev.map(t => t.id === updatedTerm.id ? updatedTerm : t);
+          }
+          // Else add new
+          return [...prev, updatedTerm];
+      });
+  };
+  
+  const handleResolveTermOnly = (term: Term) => {
+      // Force object recreation to ensure state update
+      const updated: Term = {
+          ...term,
+          status: 'term_only'
+      };
+      handleUpdateTerm(updated);
   };
 
   if (!user) {
-    return <LoginView onLogin={setUser} isLightTheme={isLightTheme} onToggleTheme={toggleTheme} />;
+    return <LoginView onLogin={handleLogin} isLightTheme={isLightTheme} onToggleTheme={toggleTheme} />;
   }
 
   return (
     <>
       {currentView === 'ARCHIVE' && (
         <ArchiveView 
-          entries={entries} 
-          user={user}
-          onNavigateToEditor={handleNavigateToEditor}
-          onNavigateToProfile={() => setCurrentView('PROFILE')}
-          onLike={handleLike}
-          isLightTheme={isLightTheme}
-          onToggleTheme={toggleTheme}
+            entries={entries} 
+            user={user} 
+            onNavigateToEditor={handleNavigateToEditor} 
+            onNavigateToProfile={handleNavigateToProfile}
+            onLike={handleLike}
+            isLightTheme={isLightTheme}
+            onToggleTheme={toggleTheme}
         />
       )}
       
       {currentView === 'EDITOR' && (
-        <EditorView 
-          onBack={() => setCurrentView('ARCHIVE')} 
-          onSave={handleUpload}
-          isLightTheme={isLightTheme}
-          initialCategory={editorInitialCategory}
-          onToggleTheme={toggleTheme}
-          entries={entries} 
+        <EditorWorkspace 
+            entries={entries}
+            terms={terms}
+            onBack={() => setCurrentView('ARCHIVE')}
+            onSaveEntry={handleSaveEntry}
+            onUpdateTerm={handleUpdateTerm}
+            onResolveTermOnly={handleResolveTermOnly}
+            isLightTheme={isLightTheme}
+            onToggleTheme={toggleTheme}
+            initialOpenEntryId={initialOpenEntryId}
+            initialOpenTermName={initialOpenTermName}
         />
       )}
 
       {currentView === 'PROFILE' && (
-        <ProfileView
-            user={user}
+        <ProfileView 
+            user={user} 
             currentUser={user}
-            entries={entries}
-            onBack={() => setCurrentView('ARCHIVE')}
+            entries={entries} 
+            onBack={() => setCurrentView('ARCHIVE')} 
             onLogout={handleLogout}
             onUpdateProfile={handleUpdateProfile}
             onLike={handleLike}
             isLightTheme={isLightTheme}
             onToggleTheme={toggleTheme}
-            onNavigateToEditor={() => handleNavigateToEditor()}
+            onNavigateToEditor={handleNavigateToEditor}
         />
       )}
     </>
