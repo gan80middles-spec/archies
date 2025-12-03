@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Entry, Category, EditorBlockNode, BlockType, TextBlock, ListBlock, CalloutBlock, ReferenceEntryBlock, CATEGORY_COLORS, Term, TermType, TermStatus } from '../types';
 import { 
@@ -1057,7 +1055,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
       <div className="flex-1 flex overflow-hidden relative z-10">
         
         {/* LEFT: Tree Editor */}
-        <div className={`flex-1 w-1/2 flex flex-col ${isLightTheme ? 'bg-[#f7f5ef]' : 'bg-[#0c0c0e]'} border-r border-gold/10`}>
+        <div className={`w-1/2 shrink-0 flex flex-col ${isLightTheme ? 'bg-[#f7f5ef]' : 'bg-[#0c0c0e]'} border-r border-gold/10`}>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-8 md:p-12">
                 <div className="max-w-3xl mx-auto animate-slide-up">
                     <div className="bg-white/[0.01] border-b border-white/5 pb-8 mb-8">
@@ -1130,7 +1128,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
         </div>
 
         {/* RIGHT: Preview */}
-        <div className={`flex-1 w-1/2 overflow-y-auto custom-scrollbar p-8 md:p-12 ${isLightTheme ? 'bg-[#f0ece3]' : 'bg-[#1a1b20]'}`}>
+        <div className={`w-1/2 shrink-0 overflow-y-auto custom-scrollbar p-8 md:p-12 ${isLightTheme ? 'bg-[#f0ece3]' : 'bg-[#1a1b20]'}`}>
             <div className="max-w-3xl mx-auto">
                 <div className="flex items-center gap-2 mb-8 opacity-50 select-none">
                     <Eye className="w-4 h-4 text-gold" />

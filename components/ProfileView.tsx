@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { User, Entry } from '../types';
 import { User as UserIcon, Calendar, Book, ArrowLeft, Heart, Edit2, X, Check, Camera, Trash2, FileText, Image as ImageIcon, Database, Sun, Moon, Plus, LogOut } from 'lucide-react';
@@ -109,7 +110,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, currentUser, ent
                 onClick={onBack}
              >
                 <div className="w-8 h-8 rounded-sm flex items-center justify-center bg-gradient-to-br from-gold/20 to-gold/5 border border-gold/20 shadow-[0_0_15px_rgba(232,201,155,0.1)]">
-                    <Database className="w-4 h-4 text-gold" />
+                    {/* New OmniEye Logo Small */}
+                    <svg viewBox="0 0 100 100" className="w-5 h-5 text-gold" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="50" cy="50" r="45" />
+                        <circle cx="41" cy="50" r="28" opacity="0.8" />
+                        <circle cx="59" cy="50" r="28" opacity="0.8" />
+                        <circle cx="50" cy="50" r="14" />
+                        {/* Hollow center ring */}
+                        <circle cx="50" cy="50" r="4" strokeWidth="6" /> 
+                    </svg>
                 </div>
                 万象档案馆
              </div>

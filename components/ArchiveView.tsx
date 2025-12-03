@@ -1,8 +1,10 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Entry, Category, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_DESCRIPTIONS, User, REALISM_DESCRIPTIONS, RISK_DESCRIPTIONS, ANOMALOUS_DESCRIPTIONS } from '../types';
-import { Search, Hash, Heart, ChevronRight, Grid, List, Database, User as UserIcon, Plus, Dna, Sword, Globe, Scroll, Gem, Users, Flag, Map, Zap, Landmark, Scale, BookOpen, Sparkles, Sun, Moon, Brain, AlertTriangle, Activity, ArrowUpRight, BarChart3, Clock, Eye, FileText } from 'lucide-react';
+import { Search, Hash, Heart, ChevronRight, Grid, List, Database, User as UserIcon, Plus, Dna, Sword, Globe, Scroll, Gem, Users, Flag, Map, Zap, Landmark, Scale, BookOpen, Sparkles, Sun, Moon, Activity, ArrowUpRight, Clock, Eye } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 interface ArchiveViewProps {
   entries: Entry[];
@@ -45,8 +47,549 @@ const CATEGORY_EN_TITLES: Record<Category, string> = {
   [Category.CULTURE]: 'CIVILIZATION',
 };
 
+// Animation Variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.1
+    }
+  }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 50,
+      damping: 15
+    }
+  },
+  exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
+};
+
+const getIcon = (category: Category) => {
+  switch (CATEGORY_ICONS[category]) {
+    case 'dna': return <Dna className="w-full h-full" />;
+    case 'sword': return <Sword className="w-full h-full" />;
+    case 'globe': return <Globe className="w-full h-full" />;
+    case 'scroll': return <Scroll className="w-full h-full" />;
+    case 'gem': return <Gem className="w-full h-full" />;
+    case 'users': return <Users className="w-full h-full" />;
+    case 'flag': return <Flag className="w-full h-full" />;
+    case 'map': return <Map className="w-full h-full" />;
+    case 'zap': return <Zap className="w-full h-full" />;
+    case 'landmark': return <Landmark className="w-full h-full" />;
+    case 'scale': return <Scale className="w-full h-full" />;
+    default: return <BookOpen className="w-full h-full" />;
+  }
+};
+
+const getMiniIcon = (category: Category) => {
+  const props = { className: "w-4 h-4" };
+  switch (CATEGORY_ICONS[category]) {
+    case 'dna': return <Dna {...props} />;
+    case 'sword': return <Sword {...props} />;
+    case 'scroll': return <Scroll {...props} />;
+    case 'users': return <Users {...props} />;
+    case 'flag': return <Flag {...props} />;
+    case 'map': return <Map {...props} />;
+    case 'zap': return <Zap {...props} />;
+    case 'landmark': return <Landmark {...props} />;
+    case 'scale': return <Scale {...props} />;
+    default: return <BookOpen {...props} />;
+  }
+};
+
+// --- INTERACTIVE HERO LOGO (Mouse Tracking) ---
+const InteractiveHeroLogo = ({ isLightTheme }: { isLightTheme: boolean }) => {
+    const [pupilPos, setPupilPos] = useState({ x: 0, y: 0 });
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!containerRef.current) return;
+            const rect = containerRef.current.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            // Vector from center to mouse
+            const dx = e.clientX - centerX;
+            const dy = e.clientY - centerY;
+            
+            const maxDistance = 12; // Maximum pupil movement in pixels
+            const sensitivity = 500; // Distance at which movement maxes out
+            
+            const rawDistance = Math.sqrt(dx * dx + dy * dy);
+            const clampedDist = Math.min(rawDistance, sensitivity);
+            const moveAmt = (clampedDist / sensitivity) * maxDistance;
+            const angle = Math.atan2(dy, dx);
+            
+            setPupilPos({
+                x: Math.cos(angle) * moveAmt,
+                y: Math.sin(angle) * moveAmt
+            });
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
+
+    const color = isLightTheme ? '#d97706' : '#e8c99b'; // amber-600 vs gold
+
+    return (
+        <div ref={containerRef} className="relative w-32 h-32 mx-auto mb-10 group cursor-default">
+            <motion.svg 
+                viewBox="0 0 100 100" 
+                className="w-full h-full overflow-visible" 
+                fill="none" 
+                stroke={color} 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+            >
+                {/* 1. Outer Ring: Draws in */}
+                <motion.circle 
+                    cx="50" cy="50" r="45" 
+                    initial={{ pathLength: 0, opacity: 0, rotate: -90 }}
+                    animate={{ pathLength: 1, opacity: 1, rotate: 0 }}
+                    transition={{ duration: 1.5, ease: "easeInOut" }}
+                />
+                
+                {/* 2. Eye Shape: Split */}
+                <motion.circle 
+                    cx="41" cy="50" r="28" 
+                    initial={{ cx: 50, opacity: 0 }}
+                    animate={{ cx: 41, opacity: 0.8 }}
+                    transition={{ duration: 1.2, delay: 0.4, type: "spring", stiffness: 120, damping: 20 }}
+                />
+                <motion.circle 
+                    cx="59" cy="50" r="28" 
+                    initial={{ cx: 50, opacity: 0 }}
+                    animate={{ cx: 59, opacity: 0.8 }}
+                    transition={{ duration: 1.2, delay: 0.4, type: "spring", stiffness: 120, damping: 20 }}
+                />
+                
+                {/* 3. Tracking Pupil Group */}
+                <motion.g 
+                    initial={{ opacity: 0, scale: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.6, delay: 0.8 }}
+                >
+                    <motion.g animate={{ x: pupilPos.x, y: pupilPos.y }} transition={{ type: "tween", ease: "linear", duration: 0.05 }}>
+                        {/* Pupil Outer */}
+                        <circle cx="50" cy="50" r="14" />
+                        
+                        {/* Core Hollow Ring */}
+                        <motion.circle 
+                            cx="50" cy="50" r="5" 
+                            strokeWidth="2"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 0.3, delay: 1.1 }}
+                        />
+                    </motion.g>
+                </motion.g>
+            </motion.svg>
+            
+            {/* Glow Effect */}
+            <div className={`absolute inset-0 blur-2xl opacity-20 transition-opacity duration-1000 ${isLightTheme ? 'bg-amber-500' : 'bg-gold'}`}></div>
+        </div>
+    );
+};
+
+// --- CATEGORY LOADER COMPONENT (Unique Animation per Sector) ---
+const CategorySigil = ({ category, color }: { category: Category, color: string }) => {
+    switch(category) {
+        case Category.CREATURE: // Biology / Pulse
+            return (
+                <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                    <motion.circle cx="50" cy="50" r="10" stroke={color} strokeWidth="2" fill="none" 
+                        animate={{ r: [10, 15, 10], opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }} />
+                    <motion.circle cx="50" cy="50" r="5" fill={color}
+                        initial={{ scale: 0 }} animate={{ scale: [1, 0, 1] }} transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }} />
+                    <motion.circle cx="35" cy="50" r="3" fill={color}
+                        initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} />
+                    <motion.circle cx="65" cy="50" r="3" fill={color}
+                        initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} />
+                    <motion.circle cx="50" cy="35" r="3" fill={color}
+                        initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} />
+                     <motion.circle cx="50" cy="65" r="3" fill={color}
+                        initial={{ opacity: 0, y: -15 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} />
+                </svg>
+            );
+        case Category.ITEM: // Lock / Keyhole
+            return (
+                <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                    <motion.rect x="30" y="35" width="40" height="30" rx="2" stroke={color} strokeWidth="2" fill="none"
+                        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8 }} />
+                    <motion.path d="M50 35 V 20" stroke={color} strokeWidth="2" 
+                         initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.5, delay: 0.5 }} />
+                    <motion.circle cx="50" cy="50" r="4" fill={color} 
+                        initial={{ scale: 0 }} animate={{ scale: [0, 1.5, 1] }} transition={{ duration: 0.4, delay: 0.8 }} />
+                    <motion.path d="M50 50 L 50 60" stroke={color} strokeWidth="3"
+                        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.3, delay: 0.9 }} />
+                </svg>
+            );
+        case Category.LAW: // Grid / Structure
+            return (
+                <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                    <motion.path d="M20 50 H80" stroke={color} strokeWidth="1" strokeDasharray="4 4"
+                         initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.8 }} />
+                    <motion.path d="M50 20 V80" stroke={color} strokeWidth="1" strokeDasharray="4 4"
+                         initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ duration: 0.8 }} />
+                    <motion.rect x="30" y="30" width="40" height="40" stroke={color} strokeWidth="2" fill="none"
+                         initial={{ opacity: 0, rotate: 45 }} animate={{ opacity: 1, rotate: 0 }} transition={{ duration: 1 }} />
+                    <motion.circle cx="50" cy="50" r="2" fill={color} animate={{ opacity: [0,1,0] }} transition={{ duration: 1, repeat: Infinity }} />
+                </svg>
+            );
+        case Category.CHRONICLE: // Timeline / Clock
+            return (
+                <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                     <motion.line x1="10" y1="50" x2="90" y2="50" stroke={color} strokeWidth="1"
+                        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1 }} />
+                     {[30, 50, 70].map((cx, i) => (
+                         <motion.circle key={i} cx={cx} cy="50" r="3" fill={color}
+                            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3 + (i * 0.2) }} />
+                     ))}
+                     <motion.line x1="50" y1="50" x2="50" y2="20" stroke={color} strokeWidth="2"
+                        initial={{ rotate: 0 }} animate={{ rotate: 360 }} transition={{ duration: 2, ease: "linear", repeat: Infinity }} style={{ originX: "50px", originY: "50px" }} />
+                </svg>
+            );
+        case Category.CHARACTER: // Orbit / Persona
+             return (
+                <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                     <motion.path d="M50 30 Q70 30 70 50 Q70 70 50 70 Q30 70 30 50 Q30 30 50 30" stroke={color} strokeWidth="2" fill="none"
+                        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1 }} />
+                     <motion.circle cx="50" cy="50" r="10" fill={color} opacity="0.5"
+                        initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5 }} />
+                     <motion.circle cx="50" cy="20" r="3" fill={color}
+                        animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} style={{ originX: "50px", originY: "50px" }} />
+                     <motion.circle cx="50" cy="80" r="2" fill={color}
+                        animate={{ rotate: -360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }} style={{ originX: "50px", originY: "50px" }} />
+                </svg>
+             );
+         case Category.FACTION: // Plates splitting
+             return (
+                <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                     <motion.path d="M50 50 L50 10 A40 40 0 0 1 85 35 Z" stroke={color} strokeWidth="1" fill={color} fillOpacity="0.2"
+                        initial={{ x: 0, y: 0 }} animate={{ x: 5, y: -5 }} transition={{ duration: 1, repeat: Infinity, repeatType: "reverse" }} />
+                     <motion.path d="M50 50 L85 35 A40 40 0 0 1 50 90 Z" stroke={color} strokeWidth="1" fill={color} fillOpacity="0.2"
+                        initial={{ x: 0, y: 0 }} animate={{ x: 5, y: 5 }} transition={{ duration: 1.2, repeat: Infinity, repeatType: "reverse" }} />
+                     <motion.path d="M50 50 L50 90 A40 40 0 0 1 15 35 Z" stroke={color} strokeWidth="1" fill={color} fillOpacity="0.2"
+                         initial={{ x: 0, y: 0 }} animate={{ x: -5, y: 0 }} transition={{ duration: 1.1, repeat: Infinity, repeatType: "reverse" }} />
+                </svg>
+             );
+         case Category.GEOGRAPHY: // Mountains / Waves
+             return (
+                 <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                     <motion.polyline points="20,60 40,30 60,60 80,40 90,60" stroke={color} strokeWidth="2" fill="none"
+                        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1 }} />
+                     <motion.path d="M20 70 Q30 65 40 70 T60 70 T80 70" stroke={color} strokeWidth="1" fill="none"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, 2, 0] }} transition={{ delay: 0.5, duration: 2, repeat: Infinity }} />
+                     <motion.path d="M20 80 Q30 75 40 80 T60 80 T80 80" stroke={color} strokeWidth="1" fill="none"
+                        initial={{ opacity: 0 }} animate={{ opacity: 0.6, y: [0, -2, 0] }} transition={{ delay: 0.7, duration: 2, repeat: Infinity }} />
+                 </svg>
+             );
+         case Category.SKILL: // Hexagon / Magic
+             return (
+                 <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                     <motion.path d="M50 20 L76 35 L76 65 L50 80 L24 65 L24 35 Z" stroke={color} strokeWidth="2" fill="none"
+                        initial={{ pathLength: 0, rotate: 0 }} animate={{ pathLength: 1, rotate: 360 }} transition={{ duration: 1, rotate: { duration: 10, repeat: Infinity, ease: "linear" } }} />
+                     <motion.circle cx="50" cy="50" r="15" stroke={color} strokeWidth="1" fill={color} fillOpacity="0.1"
+                        animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }} />
+                     <motion.circle cx="50" cy="20" r="2" fill={color} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 0.5 }} />
+                     <motion.circle cx="76" cy="65" r="2" fill={color} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 0.5, delay: 0.3 }} />
+                     <motion.circle cx="24" cy="65" r="2" fill={color} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 0.5, delay: 0.6 }} />
+                 </svg>
+             );
+         case Category.CULTURE: // Connections / Nodes
+             return (
+                 <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                     {[0, 60, 120, 180, 240, 300].map((deg, i) => (
+                         <motion.g key={i} style={{ originX: "50px", originY: "50px" }} initial={{ rotate: deg }}>
+                             <motion.circle cx="50" cy="20" r="3" fill={color}
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.1 }} />
+                             <motion.line x1="50" y1="20" x2="50" y2="35" stroke={color} strokeWidth="1"
+                                initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ delay: i * 0.1 }} />
+                         </motion.g>
+                     ))}
+                     <motion.circle cx="50" cy="50" r="10" stroke={color} strokeWidth="1" fill="none"
+                        animate={{ scale: [0.8, 1.1, 0.8] }} transition={{ duration: 2, repeat: Infinity }} />
+                 </svg>
+             );
+        default:
+            return <Activity className="w-24 h-24" color={color} />;
+    }
+}
+
+const CategoryLoader = ({ category, isLightTheme }: { category: Category, isLightTheme: boolean }) => {
+    const color = isLightTheme ? '#d97706' : '#e8c99b'; // amber-600 vs gold
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-md ${isLightTheme ? 'bg-white/80' : 'bg-obsidian/80'}`}
+        >
+            {/* Outer Ring Pulse */}
+            <div className="relative flex items-center justify-center">
+                <motion.div 
+                    className={`absolute w-64 h-64 rounded-full border border-dashed opacity-20 ${isLightTheme ? 'border-stone-400' : 'border-gold'}`}
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                />
+                <motion.div 
+                    className={`absolute w-56 h-56 rounded-full border opacity-10 ${isLightTheme ? 'border-amber-500' : 'border-gold'}`}
+                    animate={{ scale: [1, 1.05, 1], opacity: [0.1, 0.2, 0.1] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                />
+                
+                <CategorySigil category={category} color={color} />
+            </div>
+
+            <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mt-12 text-xs font-mono font-bold tracking-[0.3em] uppercase ${isLightTheme ? 'text-stone-500' : 'text-gold'}`}
+            >
+                Accessing {CATEGORY_EN_TITLES[category]}...
+            </motion.div>
+        </motion.div>
+    );
+};
+
+// --- New Sector Card Component with Advanced Boot Sequence ---
+const SectorCard = ({ 
+    category, 
+    index, 
+    isLightTheme, 
+    theme, 
+    onNavigate 
+}: { 
+    category: Category, 
+    index: number, 
+    isLightTheme: boolean, 
+    theme: any, 
+    onNavigate: (cat: Category) => void 
+}) => {
+    const [bootStage, setBootStage] = useState<'OFFLINE' | 'INIT' | 'ACTIVE_CENTER' | 'ONLINE'>('OFFLINE');
+    const stats = useMemo(() => getCategoryStats(category), [category]);
+    
+    useEffect(() => {
+        // Randomized boot sequence to create a "cascading system startup" effect
+        const startDelay = Math.random() * 800; // Random start time
+        const initDuration = 600 + Math.random() * 400; // How long it stays in "INIT"
+
+        const t1 = setTimeout(() => setBootStage('INIT'), startDelay);
+        const t2 = setTimeout(() => setBootStage('ACTIVE_CENTER'), startDelay + initDuration);
+        const t3 = setTimeout(() => setBootStage('ONLINE'), startDelay + initDuration + 800); // Hold ACTIVE in center for 800ms
+
+        return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    }, []);
+
+    // Theme-aware bar colors
+    const trackColor = isLightTheme ? 'bg-black/10' : 'bg-white/5';
+    const mysticColor = isLightTheme ? 'bg-amber-600' : 'bg-[rgba(232,201,155,0.6)]';
+    const riskColor = isLightTheme ? 'bg-red-600' : 'bg-red-500/50';
+    const realismColor = isLightTheme ? 'bg-blue-600' : 'bg-blue-400/50';
+
+    const isOnline = bootStage === 'ONLINE';
+
+    return (
+        <motion.div 
+            variants={itemVariants}
+            onClick={() => onNavigate(category)}
+            whileHover={isOnline ? { scale: 1.01, transition: { duration: 0.2 } } : {}}
+            whileTap={{ scale: 0.98 }}
+            className={`group relative h-80 ${isLightTheme ? '' : 'backdrop-blur-sm'} border rounded-sm overflow-hidden transition-colors duration-500 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-black/20 flex flex-col md:flex-row transform-gpu ${theme.border} ${isLightTheme ? 'bg-white hover:border-amber-400' : 'bg-obsidian-light/40 hover:border-gold/30 hover:bg-obsidian-light/60'}`}
+        >
+            {/* Background Elements (Always visible but dim) */}
+            <div className={`absolute -right-10 -bottom-10 w-64 h-64 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none transform -rotate-12 group-hover:scale-110 duration-700 ease-out ${isLightTheme ? 'text-stone-900' : 'text-parchment'}`}>
+                {getIcon(category)}
+            </div>
+            <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${CATEGORY_COLORS[category]} opacity-60 group-hover:opacity-100 transition-opacity`}></div>
+
+            {/* Left Panel: Narrative & Identity (65%) */}
+            <div className={`flex-1 p-8 md:p-10 flex flex-col relative z-10 border-b md:border-b-0 md:border-r ${theme.divider}`}>
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: isOnline ? 1 : 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="flex-1 flex flex-col"
+                >
+                    <div className="flex items-start justify-between mb-6">
+                        <div className={`w-14 h-14 rounded-sm border flex items-center justify-center group-hover:scale-105 transition-transform duration-500 shadow-inner ${isLightTheme ? 'bg-stone-50 border-stone-200 text-amber-600' : 'bg-white/5 border-white/10 text-gold'}`}>
+                            <div className="w-7 h-7">{getIcon(category)}</div>
+                        </div>
+                        <div className={`text-[10px] font-mono border px-2 py-1 rounded-sm transition-colors ${isLightTheme ? 'text-stone-400 border-stone-200 group-hover:text-amber-600 group-hover:border-amber-300' : 'text-parchment-dim/40 border-white/10 group-hover:text-gold group-hover:border-gold/20'}`}>
+                            SEC-{String(index + 1).padStart(2, '0')}
+                        </div>
+                    </div>
+
+                    <div className="mb-auto">
+                        <h3 className={`text-3xl font-serif mb-1 transition-colors ${isLightTheme ? 'text-stone-800 group-hover:text-amber-700' : 'text-parchment group-hover:text-gold'}`}>{category}</h3>
+                        <div className={`text-xs font-bold uppercase tracking-[0.2em] mb-6 font-mono ${theme.textMuted}`}>{CATEGORY_EN_TITLES[category]}</div>
+                        <p className={`text-sm leading-relaxed font-serif italic max-w-xl ${isLightTheme ? 'text-stone-500' : 'text-parchment-dim/80'}`}>
+                            {CATEGORY_DESCRIPTIONS[category]}
+                        </p>
+                    </div>
+
+                    <div className={`flex items-center gap-6 text-[11px] font-mono mt-8 pt-6 border-t ${theme.divider} ${isLightTheme ? 'text-stone-400' : 'text-parchment-dim/50'}`}>
+                        <span className={`flex items-center gap-2 transition-colors ${isLightTheme ? 'group-hover:text-stone-600' : 'group-hover:text-parchment-dim'}`}>
+                            <Database className="w-3 h-3" /> {stats.entries} 条记录
+                        </span>
+                        <span className={`flex items-center gap-2 transition-colors ${isLightTheme ? 'group-hover:text-stone-600' : 'group-hover:text-parchment-dim'}`}>
+                            <Clock className="w-3 h-3" /> 更新于 {stats.daysAgo} 天前
+                        </span>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* Right Panel: Dashboard & Analytics (35%) */}
+            <div className={`w-full md:w-[40%] p-8 flex flex-col justify-between relative z-10 ${isLightTheme ? 'bg-stone-50' : 'bg-black/5'}`}>
+                
+                {/* Header Status Row */}
+                <div className="flex justify-between items-center mb-6 h-6">
+                    <motion.div 
+                        animate={{ opacity: isOnline ? 1 : 0 }} 
+                        className={`text-[10px] uppercase tracking-widest font-bold ${theme.textDim}`}
+                    >
+                        Sector Status
+                    </motion.div>
+                    
+                    {/* The Target Slot for the Active Badge */}
+                    <div className="relative w-20 h-full flex justify-end items-center">
+                        {isOnline && (
+                             <motion.div 
+                                layoutId={`status-badge-${category}`}
+                                initial={false}
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                className="text-[10px] font-mono font-bold tracking-wider text-emerald-500/80"
+                            >
+                                ACTIVE
+                            </motion.div>
+                        )}
+                        {isOnline && (
+                             <motion.div 
+                                initial={{ opacity: 0 }} 
+                                animate={{ opacity: 1 }} 
+                                transition={{ delay: 0.2 }}
+                                className="w-1.5 h-1.5 rounded-full bg-emerald-500 ml-2 shadow-[0_0_8px_rgba(16,185,129,0.4)]" 
+                             />
+                        )}
+                    </div>
+                </div>
+
+                {/* Content: Charts & Buttons (Hidden until ONLINE) */}
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: isOnline ? 1 : 0 }}
+                    transition={{ duration: 0.5, delay: 0.1 }}
+                    className="flex flex-col h-full justify-center space-y-8"
+                >
+                    {/* Mini Charts */}
+                    <div className="space-y-6 flex-1 flex flex-col justify-center">
+                        <div>
+                            <div className="flex justify-between text-[10px] mb-2">
+                                <span className={`${theme.textMuted} font-mono`}>MYSTIC</span>
+                                <span className={`${isLightTheme ? 'text-amber-600' : 'text-gold/80'} font-mono`}>{stats.mystic}</span>
+                            </div>
+                            <div className={`h-1.5 w-full ${trackColor} rounded-full overflow-hidden`}>
+                                <motion.div initial={{ width: 0 }} animate={{ width: isOnline ? `${(stats.mystic / 7) * 100}%` : 0 }} transition={{ duration: 1, delay: 0.2 }} className={`h-full ${mysticColor}`}></motion.div>
+                            </div>
+                        </div>
+                        <div>
+                            <div className="flex justify-between text-[10px] mb-2">
+                                <span className={`${theme.textMuted} font-mono`}>RISK</span>
+                                <span className="text-red-400/80 font-mono">{stats.risk}</span>
+                            </div>
+                            <div className={`h-1.5 w-full ${trackColor} rounded-full overflow-hidden`}>
+                                <motion.div initial={{ width: 0 }} animate={{ width: isOnline ? `${(stats.risk / 8) * 100}%` : 0 }} transition={{ duration: 1, delay: 0.4 }} className={`h-full ${riskColor}`}></motion.div>
+                            </div>
+                        </div>
+                        <div>
+                            <div className="flex justify-between text-[10px] mb-2">
+                                <span className={`${theme.textMuted} font-mono`}>REALISM</span>
+                                <span className="text-blue-400/80 font-mono">{stats.realism}</span>
+                            </div>
+                            <div className={`h-1.5 w-full ${trackColor} rounded-full overflow-hidden`}>
+                                <motion.div initial={{ width: 0 }} animate={{ width: isOnline ? `${(stats.realism / 5) * 100}%` : 0 }} transition={{ duration: 1, delay: 0.6 }} className={`h-full ${realismColor}`}></motion.div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 mt-auto">
+                        <button className={`flex-1 py-2 border rounded-sm text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 font-bold group/btn ${isLightTheme ? 'bg-white border-stone-200 hover:bg-amber-50 hover:border-amber-300 text-stone-600 hover:text-amber-700' : 'bg-white/5 hover:bg-gold hover:text-obsidian border-white/10 hover:border-gold text-parchment'}`}>
+                            <Eye className="w-3 h-3" /> 查阅
+                        </button>
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onNavigate(category);
+                            }}
+                            className={`flex-1 py-2 border rounded-sm text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isLightTheme ? 'bg-white border-stone-200 hover:bg-stone-100 hover:border-stone-300 text-stone-400 hover:text-stone-600' : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/30 text-parchment-dim hover:text-parchment'}`}
+                        >
+                            <Plus className="w-3 h-3" /> 录入
+                        </button>
+                    </div>
+                </motion.div>
+            </div>
+
+            {/* BOOT SEQUENCE OVERLAY (Center) */}
+            <AnimatePresence>
+                {!isOnline && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                        {bootStage === 'OFFLINE' && (
+                             <motion.div 
+                                initial={{ opacity: 0 }} 
+                                animate={{ opacity: 1 }} 
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                className={`text-xs font-mono tracking-[0.3em] font-bold ${isLightTheme ? 'text-stone-400' : 'text-stone-600'}`}
+                             >
+                                 OFFLINE
+                             </motion.div>
+                        )}
+                        {bootStage === 'INIT' && (
+                             <motion.div 
+                                initial={{ opacity: 0 }} 
+                                animate={{ opacity: [1, 0.5, 1] }} 
+                                exit={{ opacity: 0, scale: 1.1 }}
+                                transition={{ repeat: Infinity, duration: 0.2 }}
+                                className="text-xs font-mono tracking-[0.2em] text-amber-500 font-bold"
+                             >
+                                 INITIALIZING...
+                             </motion.div>
+                        )}
+                        {bootStage === 'ACTIVE_CENTER' && (
+                             <motion.div
+                                layoutId={`status-badge-${category}`}
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1.5 }}
+                                exit={{ opacity: 0 }} // Let layoutId handle the movement, but this handles simple unmount if needed
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                className="text-sm font-mono font-bold tracking-widest text-emerald-500 border border-emerald-500/50 px-4 py-2 rounded-sm bg-emerald-950/30 backdrop-blur-md shadow-[0_0_20px_rgba(16,185,129,0.3)]"
+                             >
+                                ACTIVE
+                             </motion.div>
+                        )}
+                    </div>
+                )}
+            </AnimatePresence>
+        </motion.div>
+    );
+};
+
 export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavigateToEditor, onNavigateToProfile, onLike, isLightTheme, onToggleTheme }) => {
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
+  const [bootingCategory, setBootingCategory] = useState<Category | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
@@ -162,37 +705,14 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
       return [...entries].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
   }, [entries]);
 
-  const getIcon = (category: Category) => {
-    switch (CATEGORY_ICONS[category]) {
-      case 'dna': return <Dna className="w-full h-full" />;
-      case 'sword': return <Sword className="w-full h-full" />;
-      case 'globe': return <Globe className="w-full h-full" />;
-      case 'scroll': return <Scroll className="w-full h-full" />;
-      case 'gem': return <Gem className="w-full h-full" />;
-      case 'users': return <Users className="w-full h-full" />;
-      case 'flag': return <Flag className="w-full h-full" />;
-      case 'map': return <Map className="w-full h-full" />;
-      case 'zap': return <Zap className="w-full h-full" />;
-      case 'landmark': return <Landmark className="w-full h-full" />;
-      case 'scale': return <Scale className="w-full h-full" />;
-      default: return <BookOpen className="w-full h-full" />;
-    }
-  };
-
-  const getMiniIcon = (category: Category) => {
-    const props = { className: "w-4 h-4" };
-    switch (CATEGORY_ICONS[category]) {
-      case 'dna': return <Dna {...props} />;
-      case 'sword': return <Sword {...props} />;
-      case 'scroll': return <Scroll {...props} />;
-      case 'users': return <Users {...props} />;
-      case 'flag': return <Flag {...props} />;
-      case 'map': return <Map {...props} />;
-      case 'zap': return <Zap {...props} />;
-      case 'landmark': return <Landmark {...props} />;
-      case 'scale': return <Scale {...props} />;
-      default: return <BookOpen {...props} />;
-    }
+  // Handle Sector Navigation with Boot Sequence
+  const handleSectorClick = (category: Category) => {
+      setBootingCategory(category);
+      // Simulate "Awakening" delay
+      setTimeout(() => {
+          setBootingCategory(null);
+          setCurrentCategory(category);
+      }, 1200);
   };
 
   return (
@@ -203,6 +723,11 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
       {/* Central Ambient Light */}
       <div className="ambient-glow"></div>
 
+      {/* Boot Animation Overlay */}
+      <AnimatePresence>
+          {bootingCategory && <CategoryLoader category={bootingCategory} isLightTheme={isLightTheme} />}
+      </AnimatePresence>
+
       {/* Fixed Header */}
       <header className={`fixed top-0 left-0 w-full z-50 backdrop-blur-md border-b shadow-sm transition-colors duration-300 ${isLightTheme ? 'bg-white/90 border-stone-200' : 'bg-obsidian/90 border-gold/10'}`}>
         <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
@@ -212,7 +737,15 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                 onClick={() => setCurrentCategory(null)}
              >
                 <div className={`w-8 h-8 rounded-sm flex items-center justify-center border shadow-[0_0_15px_rgba(232,201,155,0.1)] ${isLightTheme ? 'bg-amber-50 border-amber-200' : 'bg-gradient-to-br from-gold/20 to-gold/5 border-gold/20'}`}>
-                    <Database className={`w-4 h-4 ${isLightTheme ? 'text-amber-600' : 'text-gold'}`} />
+                    {/* New OmniEye Logo Small */}
+                    <svg viewBox="0 0 100 100" className={`w-5 h-5 ${isLightTheme ? 'text-amber-600' : 'text-gold'}`} fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="50" cy="50" r="45" />
+                        <circle cx="41" cy="50" r="28" opacity="0.8" />
+                        <circle cx="59" cy="50" r="28" opacity="0.8" />
+                        <circle cx="50" cy="50" r="14" />
+                        {/* Hollow center ring */}
+                        <circle cx="50" cy="50" r="4" strokeWidth="6" /> 
+                    </svg>
                 </div>
                 万象档案馆
              </div>
@@ -225,12 +758,19 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                >
                  大厅
                </span>
+               <AnimatePresence mode="wait">
                {currentCategory && (
-                 <>
+                 <motion.div 
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="flex items-center"
+                 >
                     <span className="opacity-20 mx-3">/</span>
-                    <span className={`${isLightTheme ? 'text-amber-600' : 'text-gold'} font-serif animate-fade-in`}>{currentCategory}</span>
-                 </>
+                    <span className={`${isLightTheme ? 'text-amber-600' : 'text-gold'} font-serif`}>{currentCategory}</span>
+                 </motion.div>
                )}
+               </AnimatePresence>
             </nav>
           </div>
           
@@ -299,15 +839,22 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
         <div className="max-w-[1600px] mx-auto">
             
             {/* HERO SECTION - Only show when no category selected */}
+            <AnimatePresence>
             {!currentCategory && !searchQuery && (
-                <div className="mb-16 text-center animate-fade-in relative py-12">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0, overflow: 'hidden', marginBottom: 0 }}
+                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                    className="mb-16 text-center relative py-12"
+                >
                    {/* Decorative lines */}
-                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-12 bg-gradient-to-b from-transparent to-gold/30"></div>
-                   <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-px h-12 bg-gradient-to-t from-transparent to-gold/30"></div>
+                   <motion.div initial={{ height: 0 }} animate={{ height: 48 }} transition={{ delay: 0.3 }} className="absolute top-0 left-1/2 -translate-x-1/2 w-px bg-gradient-to-b from-transparent to-gold/30"></motion.div>
+                   <motion.div initial={{ height: 0 }} animate={{ height: 48 }} transition={{ delay: 0.3 }} className="absolute bottom-0 left-1/2 -translate-x-1/2 w-px bg-gradient-to-t from-transparent to-gold/30"></motion.div>
                    
-                   <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-mono mb-6 tracking-widest uppercase ${isLightTheme ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-gold/20 bg-gold/5 text-gold'}`}>
-                      <Sparkles className="w-3 h-3" /> System Operational
-                   </div>
+                   {/* Interactive Hero Logo */}
+                   <InteractiveHeroLogo isLightTheme={isLightTheme} />
+
                    <h1 className={`text-5xl md:text-7xl font-serif mb-6 tracking-tight ${isLightTheme ? 'text-stone-800' : 'text-parchment'}`}>
                       欢迎进入<span className={`italic ${isLightTheme ? 'text-amber-600' : 'text-gold'}`}>档案馆</span>
                    </h1>
@@ -315,15 +862,24 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                       此处收录了世界的每一次呼吸。从宏大的文明兴衰，到微小的突变异种。<br/>
                       请选择一个扇区开始您的探索，或直接检索核心数据库。
                    </p>
-                </div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
             {/* MAIN CONTENT AREA */}
-            <div className="animate-slide-up">
+            <div className="">
                 
                 {/* CATEGORY GRID */}
+                <AnimatePresence mode='wait'>
                 {!currentCategory && !searchQuery && (
-                  <div className="mb-24">
+                  <motion.div 
+                    key="category-grid"
+                    className="mb-24"
+                    variants={containerVariants}
+                    initial="hidden"
+                    animate="show"
+                    exit="hidden"
+                  >
                     <div className={`flex items-center justify-between mb-8 border-b pb-4 ${theme.divider}`}>
                         <h2 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${theme.textDim}`}>
                             <Grid className="w-4 h-4" /> 档案扇区 / SECTORS
@@ -332,129 +888,30 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                     </div>
                     
                     <div className="grid grid-cols-1 gap-6">
-                        {Object.values(Category).map((category, index) => {
-                            const stats = getCategoryStats(category);
-                            
-                            // Theme-aware bar colors
-                            const trackColor = isLightTheme ? 'bg-black/10' : 'bg-white/5';
-                            const mysticColor = isLightTheme ? 'bg-amber-600' : 'bg-[rgba(232,201,155,0.6)]';
-                            const riskColor = isLightTheme ? 'bg-red-600' : 'bg-red-500/50';
-                            const realismColor = isLightTheme ? 'bg-blue-600' : 'bg-blue-400/50';
-
-                            return (
-                                <div 
-                                    key={category}
-                                    onClick={() => setCurrentCategory(category)}
-                                    // FIXED: Added transform-gpu to force layer promotion and prevent paint issues during theme switch.
-                                    // FIXED: Removed backdrop-blur-sm in light mode as bg is opaque white.
-                                    // FIXED: Increased transition duration to 500ms to match body transition.
-                                    className={`group relative h-80 ${isLightTheme ? '' : 'backdrop-blur-sm'} border rounded-sm overflow-hidden transition-all duration-500 cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-black/20 flex flex-col md:flex-row transform-gpu ${theme.border} ${isLightTheme ? 'bg-white hover:border-amber-400' : 'bg-obsidian-light/40 hover:border-gold/30 hover:bg-obsidian-light/60'}`}
-                                >
-                                    {/* Background Watermark */}
-                                    <div className={`absolute -right-10 -bottom-10 w-64 h-64 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none transform -rotate-12 group-hover:scale-110 duration-700 ease-out ${isLightTheme ? 'text-stone-900' : 'text-parchment'}`}>
-                                        {getIcon(category)}
-                                    </div>
-                                    <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${CATEGORY_COLORS[category]} opacity-60 group-hover:opacity-100 transition-opacity`}></div>
-
-                                    {/* Left Panel: Narrative & Identity (65%) */}
-                                    <div className={`flex-1 p-8 md:p-10 flex flex-col relative z-10 border-b md:border-b-0 md:border-r ${theme.divider}`}>
-                                        <div className="flex items-start justify-between mb-6">
-                                            <div className={`w-14 h-14 rounded-sm border flex items-center justify-center group-hover:scale-105 transition-transform duration-500 shadow-inner ${isLightTheme ? 'bg-stone-50 border-stone-200 text-amber-600' : 'bg-white/5 border-white/10 text-gold'}`}>
-                                                <div className="w-7 h-7">{getIcon(category)}</div>
-                                            </div>
-                                            <div className={`text-[10px] font-mono border px-2 py-1 rounded-sm transition-colors ${isLightTheme ? 'text-stone-400 border-stone-200 group-hover:text-amber-600 group-hover:border-amber-300' : 'text-parchment-dim/40 border-white/10 group-hover:text-gold group-hover:border-gold/20'}`}>
-                                                SEC-{String(index + 1).padStart(2, '0')}
-                                            </div>
-                                        </div>
-
-                                        <div className="mb-auto">
-                                            <h3 className={`text-3xl font-serif mb-1 transition-colors ${isLightTheme ? 'text-stone-800 group-hover:text-amber-700' : 'text-parchment group-hover:text-gold'}`}>{category}</h3>
-                                            <div className={`text-xs font-bold uppercase tracking-[0.2em] mb-6 font-mono ${theme.textMuted}`}>{CATEGORY_EN_TITLES[category]}</div>
-                                            <p className={`text-sm leading-relaxed font-serif italic max-w-xl ${isLightTheme ? 'text-stone-500' : 'text-parchment-dim/80'}`}>
-                                                {CATEGORY_DESCRIPTIONS[category]}
-                                            </p>
-                                        </div>
-
-                                        <div className={`flex items-center gap-6 text-[11px] font-mono mt-8 pt-6 border-t ${theme.divider} ${isLightTheme ? 'text-stone-400' : 'text-parchment-dim/50'}`}>
-                                            <span className={`flex items-center gap-2 transition-colors ${isLightTheme ? 'group-hover:text-stone-600' : 'group-hover:text-parchment-dim'}`}>
-                                                <Database className="w-3 h-3" /> {stats.entries} 条记录
-                                            </span>
-                                            <span className={`flex items-center gap-2 transition-colors ${isLightTheme ? 'group-hover:text-stone-600' : 'group-hover:text-parchment-dim'}`}>
-                                                <Clock className="w-3 h-3" /> 更新于 {stats.daysAgo} 天前
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Right Panel: Dashboard & Analytics (35%) */}
-                                    <div className={`w-full md:w-[35%] p-8 flex flex-col justify-between relative z-10 ${isLightTheme ? 'bg-stone-50' : 'bg-black/5'}`}>
-                                        
-                                        {/* Status */}
-                                        <div className="flex justify-between items-center mb-6">
-                                            <div className={`text-[10px] uppercase tracking-widest font-bold ${theme.textDim}`}>Sector Status</div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                                                <span className="text-[10px] font-mono text-emerald-500/80">ACTIVE</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Mini Charts */}
-                                        <div className="space-y-4 mb-8 flex-1">
-                                            <div>
-                                                <div className="flex justify-between text-[10px] mb-1.5">
-                                                    <span className={`${theme.textMuted} font-mono`}>MYSTIC</span>
-                                                    <span className={`${isLightTheme ? 'text-amber-600' : 'text-gold/80'} font-mono`}>{stats.mystic}</span>
-                                                </div>
-                                                <div className={`h-1 w-full ${trackColor} rounded-full overflow-hidden`}>
-                                                    <div className={`h-full ${mysticColor}`} style={{width: `${(stats.mystic / 7) * 100}%`}}></div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="flex justify-between text-[10px] mb-1.5">
-                                                    <span className={`${theme.textMuted} font-mono`}>RISK</span>
-                                                    <span className="text-red-400/80 font-mono">{stats.risk}</span>
-                                                </div>
-                                                <div className={`h-1 w-full ${trackColor} rounded-full overflow-hidden`}>
-                                                    <div className={`h-full ${riskColor}`} style={{width: `${(stats.risk / 8) * 100}%`}}></div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="flex justify-between text-[10px] mb-1.5">
-                                                    <span className={`${theme.textMuted} font-mono`}>REALISM</span>
-                                                    <span className="text-blue-400/80 font-mono">{stats.realism}</span>
-                                                </div>
-                                                <div className={`h-1 w-full ${trackColor} rounded-full overflow-hidden`}>
-                                                    <div className={`h-full ${realismColor}`} style={{width: `${(stats.realism / 5) * 100}%`}}></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="flex gap-3 mt-auto">
-                                            <button className={`flex-1 py-2 border rounded-sm text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 font-bold group/btn ${isLightTheme ? 'bg-white border-stone-200 hover:bg-amber-50 hover:border-amber-300 text-stone-600 hover:text-amber-700' : 'bg-white/5 hover:bg-gold hover:text-obsidian border-white/10 hover:border-gold text-parchment'}`}>
-                                                <Eye className="w-3 h-3" /> 查阅
-                                            </button>
-                                            <button 
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onNavigateToEditor(category);
-                                                }}
-                                                className={`flex-1 py-2 border rounded-sm text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isLightTheme ? 'bg-white border-stone-200 hover:bg-stone-100 hover:border-stone-300 text-stone-400 hover:text-stone-600' : 'bg-white/5 hover:bg-white/10 border-white/10 hover:border-white/30 text-parchment-dim hover:text-parchment'}`}
-                                            >
-                                                <Plus className="w-3 h-3" /> 录入
-                                            </button>
-                                        </div>
-
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {Object.values(Category).map((category, index) => (
+                            <SectorCard 
+                                key={category}
+                                category={category}
+                                index={index}
+                                isLightTheme={isLightTheme}
+                                theme={theme}
+                                onNavigate={handleSectorClick}
+                            />
+                        ))}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
 
                 {/* ENTRIES LIST / GRID */}
-                {(currentCategory || searchQuery) && (
-                    <div className="animate-fade-in">
+                {(currentCategory || searchQuery) && !bootingCategory && (
+                    <motion.div 
+                        key="entries-list"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        className=""
+                    >
                         <div className="flex items-center justify-between mb-8">
                             <h2 className={`text-2xl font-serif flex items-center gap-3 ${isLightTheme ? 'text-stone-800' : 'text-parchment'}`}>
                                 {currentCategory && (
@@ -481,21 +938,31 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                         </div>
 
                         {filteredEntries.length === 0 ? (
-                            <div className={`text-center py-24 border border-dashed rounded-sm ${isLightTheme ? 'border-stone-200 bg-stone-50/50' : 'border-white/10 bg-white/[0.02]'}`}>
+                            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`text-center py-24 border border-dashed rounded-sm ${isLightTheme ? 'border-stone-200 bg-stone-50/50' : 'border-white/10 bg-white/[0.02]'}`}>
                                 <div className={`mb-4 mx-auto w-12 h-12 flex items-center justify-center border rounded-full ${isLightTheme ? 'text-amber-400 border-amber-200' : 'text-gold/50 border-gold/20'}`}>
                                     <Database className="w-5 h-5" />
                                 </div>
                                 <p className={`font-serif italic text-lg ${theme.textDim}`}>暂无匹配档案。</p>
                                 <p className={`text-[10px] font-mono mt-2 uppercase tracking-widest ${theme.textMuted}`}>NO_DATA_FOUND</p>
-                            </div>
+                            </motion.div>
                         ) : (
-                            <div className={`grid gap-6 ${viewMode === 'GRID' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
-                                {filteredEntries.map(entry => (
-                                    <div 
+                            <motion.div 
+                                layout
+                                className={`grid gap-6 ${viewMode === 'GRID' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}
+                            >
+                                <AnimatePresence mode="popLayout">
+                                {filteredEntries.map((entry, index) => (
+                                    <motion.div 
+                                        layout
                                         key={entry.id}
+                                        variants={itemVariants}
+                                        initial="hidden"
+                                        animate="show"
+                                        exit="exit"
+                                        transition={{ delay: index * 0.05 }}
                                         onClick={() => setSelectedEntry(entry)}
-                                        // FIXED: Added transform-gpu and duration-500 here as well
-                                        className={`group relative overflow-hidden backdrop-blur-sm border rounded-sm p-6 cursor-pointer transition-all duration-500 transform-gpu ${theme.bgCard} ${theme.border} ${theme.bgHover} ${viewMode === 'LIST' ? 'flex gap-6 items-center' : ''} ${isLightTheme ? 'hover:shadow-lg hover:border-amber-300' : 'hover:shadow-xl hover:border-gold/30'}`}
+                                        whileHover={{ scale: 1.02 }}
+                                        className={`group relative overflow-hidden backdrop-blur-sm border rounded-sm p-6 cursor-pointer transition-colors duration-500 transform-gpu ${theme.bgCard} ${theme.border} ${theme.bgHover} ${viewMode === 'LIST' ? 'flex gap-6 items-center' : ''} ${isLightTheme ? 'hover:shadow-lg hover:border-amber-300' : 'hover:shadow-xl hover:border-gold/30'}`}
                                     >
                                         <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${CATEGORY_COLORS[entry.category]} opacity-40 group-hover:opacity-100 transition-opacity`}></div>
                                         
@@ -538,19 +1005,25 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                                 </span>
                                             </div>
                                         </div>
-                                    </div>
+                                    </motion.div>
                                 ))}
-                            </div>
+                                </AnimatePresence>
+                            </motion.div>
                         )}
-                    </div>
+                    </motion.div>
                 )}
                 
                 {/* LATEST ENTRIES (Full Width List) */}
+                <AnimatePresence>
                 {!currentCategory && !searchQuery && (
-                  <div>
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
                     <div className={`flex items-center justify-between mb-8 border-b pb-4 ${theme.divider}`}>
                         <h2 className={`text-sm font-bold uppercase tracking-widest flex items-center gap-2 ${theme.textDim}`}>
-                            <Activity className="w-4 h-4" /> 最新收录 / RECENT LOGS
+                            <Activity className="w-4 h-4" /> 最新收录 / RECENT logs
                         </h2>
                         <button className={`text-[10px] hover:underline font-mono uppercase tracking-widest flex items-center gap-1 ${isLightTheme ? 'text-amber-600' : 'text-gold'}`}>
                             VIEW ALL <ArrowUpRight className="w-3 h-3" />
@@ -558,12 +1031,14 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        {recentEntries.map(entry => (
-                            <div 
+                        {recentEntries.map((entry, i) => (
+                            <motion.div 
                                 key={entry.id}
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.1 * i }}
                                 onClick={() => setSelectedEntry(entry)}
-                                // FIXED: Added transform-gpu and duration-500 here as well
-                                className={`group flex items-center gap-6 border rounded-sm p-4 cursor-pointer transition-all duration-500 transform-gpu hover:translate-x-1 ${theme.bgCard} ${theme.border} ${isLightTheme ? 'hover:bg-white hover:border-amber-400' : 'bg-obsidian-light/40 hover:border-gold/30 hover:bg-white/5'}`}
+                                className={`group flex items-center gap-6 border rounded-sm p-4 cursor-pointer transition-colors duration-500 transform-gpu hover:translate-x-1 ${theme.bgCard} ${theme.border} ${isLightTheme ? 'hover:bg-white hover:border-amber-400' : 'bg-obsidian-light/40 hover:border-gold/30 hover:bg-white/5'}`}
                             >
                                 {/* Category Icon & Name */}
                                 <div className={`w-32 shrink-0 flex items-center gap-3 border-r pr-4 ${theme.divider}`}>
@@ -592,20 +1067,34 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                     <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
                                     <Heart className={`w-3 h-3 group-hover:text-red-400 ${user.favorites.includes(entry.id) ? 'fill-red-900 text-red-900' : ''}`} />
                                 </div>
-                            </div>
+                            </motion.div>
                         ))}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
+                </AnimatePresence>
             </div>
         </div>
       </main>
 
       {/* Entry Detail Modal */}
+      <AnimatePresence>
       {selectedEntry && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedEntry(null)}></div>
-            <div className={`relative w-full max-w-4xl h-full md:h-auto max-h-[90vh] border rounded-sm shadow-2xl flex flex-col md:flex-row overflow-hidden animate-slide-up ${isLightTheme ? 'bg-white border-stone-200' : 'bg-obsidian border-gold/20'}`}>
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+                onClick={() => setSelectedEntry(null)}
+            ></motion.div>
+            <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
+                className={`relative w-full max-w-4xl h-full md:h-auto max-h-[90vh] border rounded-sm shadow-2xl flex flex-col md:flex-row overflow-hidden ${isLightTheme ? 'bg-white border-stone-200' : 'bg-obsidian border-gold/20'}`}
+            >
                 
                 {/* Modal Left: Content */}
                 <div className={`flex-1 overflow-y-auto custom-scrollbar p-8 md:p-12 relative ${theme.modalContent}`}>
@@ -723,9 +1212,10 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                     </div>
                 </div>
 
-            </div>
+            </motion.div>
         </div>
       )}
+      </AnimatePresence>
     </div>
   );
 };

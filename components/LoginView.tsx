@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { User } from '../types';
-import { Shield, Lock, Mail, User as UserIcon, ArrowRight, Key, Sun, Moon } from 'lucide-react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { Lock, Mail, User as UserIcon, ArrowRight, Key, Sun, Moon } from 'lucide-react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -117,15 +118,66 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLightTheme, onT
              initial={{ scale: 0, rotate: -45 }}
              animate={{ scale: 1, rotate: 0 }}
              transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.2 }}
-             className="w-16 h-16 border border-gold/20 bg-obsidian-light/50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl relative"
+             className="w-20 h-20 border border-gold/20 bg-obsidian-light/50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl relative"
            >
               <div className="absolute inset-0 rounded-full border border-gold/10 animate-pulse-slow"></div>
-              <Shield className="w-6 h-6 text-gold" />
+              
+              {/* Animated OmniEye Logo */}
+              <motion.svg 
+                  viewBox="0 0 100 100" 
+                  className="w-10 h-10 text-gold overflow-visible" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+              >
+                  {/* 1. Outer Ring: Draws in with rotation */}
+                  <motion.circle 
+                    cx="50" cy="50" r="45" 
+                    initial={{ pathLength: 0, opacity: 0, rotate: -90 }}
+                    animate={{ pathLength: 1, opacity: 1, rotate: 0 }}
+                    transition={{ duration: 1.5, ease: "easeInOut" }}
+                  />
+                  
+                  {/* REMOVED: Middle Ring (Opacity 0.5) */}
+                  
+                  {/* 2. The Eye Shape: Mitosis (Split from center) - Creates the eye aperture */}
+                  <motion.circle 
+                    cx="41" cy="50" r="28" 
+                    initial={{ cx: 50, opacity: 0 }}
+                    animate={{ cx: 41, opacity: 0.8 }}
+                    transition={{ duration: 1.2, delay: 0.4, type: "spring", stiffness: 120, damping: 20 }}
+                  />
+                  <motion.circle 
+                    cx="59" cy="50" r="28" 
+                    initial={{ cx: 50, opacity: 0 }}
+                    animate={{ cx: 59, opacity: 0.8 }}
+                    transition={{ duration: 1.2, delay: 0.4, type: "spring", stiffness: 120, damping: 20 }}
+                  />
+                  
+                  {/* 3. Pupil: Dilates (Opens) */}
+                  <motion.circle 
+                    cx="50" cy="50" r="14" 
+                    initial={{ r: 0, opacity: 0 }}
+                    animate={{ r: 14, opacity: 1 }}
+                    transition={{ duration: 0.6, delay: 0.8, type: "spring" }}
+                  />
+                  
+                  {/* 4. Center Core: Now a hollow ring instead of solid dot */}
+                  <motion.circle 
+                    cx="50" cy="50" r="5" 
+                    strokeWidth="2"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 1.1, type: "spring" }}
+                  />
+              </motion.svg>
            </motion.div>
            <motion.h1 
              initial={{ opacity: 0, y: 10 }}
              animate={{ opacity: 1, y: 0 }}
-             transition={{ delay: 0.4 }}
+             transition={{ delay: 1.0 }}
              className="text-4xl font-serif text-parchment tracking-tight mb-2"
            >
              万象档案馆
@@ -133,7 +185,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLightTheme, onT
            <motion.p 
              initial={{ opacity: 0 }}
              animate={{ opacity: 1 }}
-             transition={{ delay: 0.6 }}
+             transition={{ delay: 1.2 }}
              className="text-xs text-gold/60 uppercase tracking-[0.3em] font-mono"
            >
              世界观察局 // OmniArchive
