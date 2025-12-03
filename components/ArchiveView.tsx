@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Entry, Category, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_DESCRIPTIONS, User, REALISM_DESCRIPTIONS, RISK_DESCRIPTIONS, ANOMALOUS_DESCRIPTIONS } from '../types';
-import { Search, Hash, Heart, ChevronRight, Grid, List, Database, User as UserIcon, Plus, Dna, Sword, Globe, Scroll, Gem, Users, Flag, Map, Zap, Landmark, Scale, BookOpen, Sparkles, Sun, Moon, Activity, ArrowUpRight, Clock, Eye } from 'lucide-react';
+import { Search, Hash, Heart, ChevronRight, Grid, List, Database, User as UserIcon, Plus, Dna, Sword, Globe, Scroll, Gem, Users, Flag, Map, Zap, Landmark, Scale, BookOpen, Sparkles, Sun, Moon, Activity, ArrowUpRight, Clock, Eye, PenTool } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
@@ -365,6 +365,63 @@ const CategoryLoader = ({ category, isLightTheme }: { category: Category, isLigh
     );
 };
 
+// --- EDITOR LOADER COMPONENT ---
+const EditorLoader = ({ isLightTheme }: { isLightTheme: boolean }) => {
+    const color = isLightTheme ? '#d97706' : '#e8c99b'; 
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-md ${isLightTheme ? 'bg-white/80' : 'bg-obsidian/80'}`}
+        >
+            <div className="relative flex items-center justify-center">
+                 {/* Rotating Grid Background */}
+                 <motion.div 
+                    className={`absolute w-72 h-72 border border-dashed opacity-10 ${isLightTheme ? 'border-amber-600' : 'border-gold'}`}
+                    animate={{ rotate: [0, 90, 180, 270, 360] }}
+                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                />
+                <motion.div 
+                    className={`absolute w-64 h-64 opacity-5 ${isLightTheme ? 'bg-amber-500' : 'bg-gold'}`}
+                    animate={{ scale: [0.8, 1, 0.8], opacity: [0.05, 0.1, 0.05] }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    style={{ clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)' }}
+                />
+
+                <svg viewBox="0 0 100 100" className="w-24 h-24 overflow-visible">
+                    {/* Document Frame */}
+                    <motion.rect x="30" y="20" width="40" height="60" rx="2" fill="none" stroke={color} strokeWidth="2" 
+                        initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.8, ease: "easeInOut" }} />
+                    
+                    {/* Horizontal Lines (Text) */}
+                    <motion.path d="M40 35 H60" stroke={color} strokeWidth="2" strokeLinecap="round"
+                         initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ delay: 0.4, duration: 0.4 }} />
+                    <motion.path d="M40 50 H60" stroke={color} strokeWidth="2" strokeLinecap="round"
+                         initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ delay: 0.6, duration: 0.4 }} />
+                    <motion.path d="M40 65 H50" stroke={color} strokeWidth="2" strokeLinecap="round"
+                         initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ delay: 0.8, duration: 0.4 }} />
+
+                    {/* Floating Pen/Cursor */}
+                    <motion.g initial={{ x: 10, y: 10, opacity: 0 }} animate={{ x: 0, y: 0, opacity: 1 }} transition={{ delay: 0.8, duration: 0.5 }}>
+                        <path d="M60 60 L75 75" stroke={color} strokeWidth="2" strokeLinecap="round" />
+                        <circle cx="75" cy="75" r="2" fill={color} />
+                    </motion.g>
+                </svg>
+            </div>
+
+            <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mt-12 text-xs font-mono font-bold tracking-[0.3em] uppercase ${isLightTheme ? 'text-stone-500' : 'text-gold'}`}
+            >
+                INITIALIZING WORKSPACE...
+            </motion.div>
+        </motion.div>
+    );
+};
+
 // --- New Sector Card Component with Advanced Boot Sequence ---
 const SectorCard = ({ 
     category, 
@@ -452,7 +509,7 @@ const SectorCard = ({
                 </motion.div>
             </div>
 
-            {/* Right Panel: Dashboard & Analytics (35%) */}
+            {/* Right Panel: Dashboard & Analytics (40%) */}
             <div className={`w-full md:w-[40%] p-8 flex flex-col justify-between relative z-10 ${isLightTheme ? 'bg-stone-50' : 'bg-black/5'}`}>
                 
                 {/* Header Status Row */}
@@ -492,7 +549,7 @@ const SectorCard = ({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: isOnline ? 1 : 0 }}
                     transition={{ duration: 0.5, delay: 0.1 }}
-                    className="flex flex-col h-full justify-center space-y-8"
+                    className="flex flex-col h-full justify-center space-y-6"
                 >
                     {/* Mini Charts */}
                     <div className="space-y-6 flex-1 flex flex-col justify-center">
@@ -590,6 +647,7 @@ const SectorCard = ({
 export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavigateToEditor, onNavigateToProfile, onLike, isLightTheme, onToggleTheme }) => {
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [bootingCategory, setBootingCategory] = useState<Category | null>(null);
+  const [isBootingEditor, setIsBootingEditor] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
@@ -715,6 +773,15 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
       }, 1200);
   };
 
+  // Handle Editor Navigation with Boot Sequence
+  const handleNavigateToEditorWithAnimation = () => {
+      setIsBootingEditor(true);
+      setTimeout(() => {
+          setIsBootingEditor(false);
+          onNavigateToEditor();
+      }, 1200);
+  };
+
   return (
     <div className={`min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500 ${isLightTheme ? 'bg-obsidian text-stone-800' : 'bg-obsidian text-parchment'}`}>
       <canvas ref={canvasRef} className="fixed inset-0 z-0 pointer-events-none opacity-60" />
@@ -723,9 +790,10 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
       {/* Central Ambient Light */}
       <div className="ambient-glow"></div>
 
-      {/* Boot Animation Overlay */}
+      {/* Boot Animation Overlays */}
       <AnimatePresence>
           {bootingCategory && <CategoryLoader category={bootingCategory} isLightTheme={isLightTheme} />}
+          {isBootingEditor && <EditorLoader isLightTheme={isLightTheme} />}
       </AnimatePresence>
 
       {/* Fixed Header */}
@@ -737,14 +805,14 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                 onClick={() => setCurrentCategory(null)}
              >
                 <div className={`w-8 h-8 rounded-sm flex items-center justify-center border shadow-[0_0_15px_rgba(232,201,155,0.1)] ${isLightTheme ? 'bg-amber-50 border-amber-200' : 'bg-gradient-to-br from-gold/20 to-gold/5 border-gold/20'}`}>
-                    {/* New OmniEye Logo Small */}
-                    <svg viewBox="0 0 100 100" className={`w-5 h-5 ${isLightTheme ? 'text-amber-600' : 'text-gold'}`} fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+                    {/* New OmniEye Logo Small - Thinner Strokes */}
+                    <svg viewBox="0 0 100 100" className={`w-5 h-5 ${isLightTheme ? 'text-amber-600' : 'text-gold'}`} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="50" cy="50" r="45" />
                         <circle cx="41" cy="50" r="28" opacity="0.8" />
                         <circle cx="59" cy="50" r="28" opacity="0.8" />
                         <circle cx="50" cy="50" r="14" />
                         {/* Hollow center ring */}
-                        <circle cx="50" cy="50" r="4" strokeWidth="6" /> 
+                        <circle cx="50" cy="50" r="4" strokeWidth="4" /> 
                     </svg>
                 </div>
                 万象档案馆
@@ -803,7 +871,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
              </button>
 
              <button 
-                onClick={() => onNavigateToEditor()}
+                onClick={handleNavigateToEditorWithAnimation}
                 className={`hidden md:flex items-center gap-2 border px-4 py-1.5 rounded-sm text-sm transition-all shadow-lg 
                     ${isLightTheme 
                         ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100 hover:border-amber-300' 
