@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Entry, Category, EditorBlockNode, BlockType, TextBlock, ListBlock, CalloutBlock, ReferenceEntryBlock, CATEGORY_COLORS, Term, TermType, TermStatus } from '../types';
 import { 
@@ -6,6 +7,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useOutlineTree, createSiblingNode, generateId } from '../hooks/useOutlineTree';
 
 // --- CONFIG & UTILS (Kept same as before) ---
@@ -715,6 +717,9 @@ export const EditorView: React.FC<EditorViewProps> = ({
   const [showReferencePicker, setShowReferencePicker] = useState(false);
   const [referenceSearchQuery, setReferenceSearchQuery] = useState('');
 
+  // Toast Notification State
+  const [toast, setToast] = useState<{ show: boolean, message: string }>({ show: false, message: '' });
+
   // Focus management
   useEffect(() => {
     if (focusId && blockRefs.current[focusId]) {
@@ -987,7 +992,17 @@ export const EditorView: React.FC<EditorViewProps> = ({
     return generateMarkdownContent(); // Keep it clean for now, no frontmatter needed for internal save
   };
 
-  const handlePublish = () => {
+  // Toast Functionality
+  const triggerToast = (message: string) => {
+      setToast({ show: true, message });
+      setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+  };
+
+  const handleSaveDraft = () => {
+      triggerToast("草稿已保存到本地存储");
+  };
+
+  const handlePublishWithAnimation = () => {
     if (!title.trim()) {
       alert("请输入档案标题。");
       return;
@@ -1002,6 +1017,7 @@ export const EditorView: React.FC<EditorViewProps> = ({
         risk,
         anomalous
     });
+    triggerToast("档案已成功加密并归档");
   };
 
   useEffect(() => {
@@ -1046,8 +1062,8 @@ export const EditorView: React.FC<EditorViewProps> = ({
              >
                {isLightTheme ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
              </button>
-            <button onClick={() => alert("草稿已保存到本地。")} className="hidden md:flex items-center gap-2 bg-transparent border border-white/10 hover:border-gold/30 text-parchment-dim hover:text-gold text-xs font-medium px-4 py-1.5 rounded-sm transition-all"><Save className="w-3.5 h-3.5" /><span>存草稿</span></button>
-            <button onClick={handlePublish} className="flex items-center gap-2 bg-gold hover:bg-[#c5a676] text-obsidian font-bold px-5 py-1.5 rounded-sm transition-transform active:scale-95 text-xs uppercase tracking-wider shadow-lg"><Upload className="w-3.5 h-3.5" /><span>保存</span></button>
+            <button onClick={handleSaveDraft} className="hidden md:flex items-center gap-2 bg-transparent border border-white/10 hover:border-gold/30 text-parchment-dim hover:text-gold text-xs font-medium px-4 py-1.5 rounded-sm transition-all"><Save className="w-3.5 h-3.5" /><span>存草稿</span></button>
+            <button onClick={handlePublishWithAnimation} className="flex items-center gap-2 bg-gold hover:bg-[#c5a676] text-obsidian font-bold px-5 py-1.5 rounded-sm transition-transform active:scale-95 text-xs uppercase tracking-wider shadow-lg"><Upload className="w-3.5 h-3.5" /><span>保存</span></button>
           </div>
         </div>
       </div>
@@ -1297,6 +1313,31 @@ export const EditorView: React.FC<EditorViewProps> = ({
              </div>
           </div>
       )}
+
+      {/* --- Notification Toast --- */}
+      <AnimatePresence>
+        {toast.show && (
+            <motion.div 
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className={`fixed bottom-10 right-10 z-[100] pl-4 pr-6 py-3 rounded-sm shadow-2xl border flex items-center gap-3 ${
+                    isLightTheme 
+                        ? 'bg-white border-emerald-200 text-stone-800' 
+                        : 'bg-[#1a1b20] border-emerald-500/30 text-parchment'
+                }`}
+            >
+                <div className={`p-1.5 rounded-full ${isLightTheme ? 'bg-emerald-50 text-emerald-600' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                    <div className="font-bold text-sm font-serif">{toast.message}</div>
+                    <div className={`text-[9px] font-mono tracking-wider ${isLightTheme ? 'text-stone-400' : 'text-parchment-dim/50'}`}>SYSTEM_CONFIRMED</div>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
