@@ -1,19 +1,23 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Entry, Category, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_DESCRIPTIONS, User, REALISM_DESCRIPTIONS, RISK_DESCRIPTIONS, ANOMALOUS_DESCRIPTIONS } from '../types';
-import { Search, Hash, Heart, ChevronRight, Grid, List, Database, User as UserIcon, Plus, Dna, Sword, Globe, Scroll, Gem, Users, Flag, Map, Zap, Landmark, Scale, BookOpen, Sparkles, Sun, Moon, Activity, ArrowUpRight, Clock, Eye, PenTool } from 'lucide-react';
+import { Search, Hash, ChevronRight, Grid, List, Database, User as UserIcon, Plus, Dna, Sword, Globe, Scroll, Gem, Users, Flag, Map, Zap, Landmark, Scale, BookOpen, Sparkles, Sun, Moon, Activity, ArrowUpRight, Clock, Eye, PenTool, Bookmark, Bell } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { CommentSection } from './CommentSection';
+import { UserHoverCard } from './UserHoverCard';
 
 interface ArchiveViewProps {
   entries: Entry[];
   user: User;
   onNavigateToEditor: (category?: Category) => void;
   onNavigateToProfile: () => void;
+  onNavigateToNotifications: () => void;
   onLike: (id: string) => void;
+  onBookmark: (id: string) => void;
   isLightTheme: boolean;
   onToggleTheme: () => void;
+  onInspectUser: (userId: string, username: string, avatarUrl?: string) => void;
 }
 
 // Helper to generate consistent pseudo-random stats for visualization
@@ -644,7 +648,7 @@ const SectorCard = ({
     );
 };
 
-export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavigateToEditor, onNavigateToProfile, onLike, isLightTheme, onToggleTheme }) => {
+export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavigateToEditor, onNavigateToProfile, onNavigateToNotifications, onLike, onBookmark, isLightTheme, onToggleTheme, onInspectUser }) => {
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [bootingCategory, setBootingCategory] = useState<Category | null>(null);
   const [isBootingEditor, setIsBootingEditor] = useState(false);
@@ -652,7 +656,19 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
   
+  // Notification Count State
+  const [unreadCount, setUnreadCount] = useState(0);
+  
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Mock Fetch Notification Count
+  useEffect(() => {
+    // Simulate an API call
+    const timer = setTimeout(() => {
+        setUnreadCount(3); // Mock unread count
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Theme Constants
   const theme = isLightTheme ? {
@@ -870,6 +886,20 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                {isLightTheme ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
              </button>
 
+             {/* Notification Bell */}
+             <button
+               onClick={onNavigateToNotifications}
+               className={`relative p-2 rounded-sm transition-colors border border-transparent ${isLightTheme ? 'text-stone-500 hover:text-amber-600 hover:bg-black/5' : 'text-parchment-dim hover:text-gold hover:bg-white/5 hover:border-gold/10'}`}
+               title="通知中心"
+             >
+               <Bell className="w-4 h-4" />
+               {unreadCount > 0 && (
+                   <span className="absolute top-1 right-1 -mt-1 -mr-1 flex items-center justify-center min-w-[14px] h-[14px] bg-red-500 text-white text-[9px] font-bold rounded-full px-0.5 border border-obsidian">
+                       {unreadCount > 99 ? '99+' : unreadCount}
+                   </span>
+               )}
+             </button>
+
              <button 
                 onClick={handleNavigateToEditorWithAnimation}
                 className={`hidden md:flex items-center gap-2 border px-4 py-1.5 rounded-sm text-sm transition-all shadow-lg 
@@ -1019,7 +1049,10 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                 className={`grid gap-6 ${viewMode === 'GRID' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}
                             >
                                 <AnimatePresence mode="popLayout">
-                                {filteredEntries.map((entry, index) => (
+                                {filteredEntries.map((entry, index) => {
+                                    const isLiked = user.likedEntries.includes(entry.id);
+                                    const isBookmarked = user.bookmarks.includes(entry.id);
+                                    return (
                                     <motion.div 
                                         layout
                                         key={entry.id}
@@ -1065,16 +1098,68 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                             </div>
                                         </div>
                                         
-                                        <div className={`${viewMode === 'LIST' ? `w-32 text-right border-l pl-6 ${theme.divider}` : `flex items-center justify-between mt-6 pt-4 border-t ${theme.divider}`}`}>
-                                            <div className={`text-[10px] font-mono mb-1 ${theme.textMuted}`}>{entry.author}</div>
-                                            <div className={`flex items-center gap-4 text-xs justify-end ${isLightTheme ? 'text-stone-400' : 'text-parchment-dim/60'}`}>
-                                                <span className="flex items-center gap-1 group-hover:text-red-400 transition-colors">
-                                                    <Heart className={`w-3 h-3 ${user.favorites.includes(entry.id) ? 'fill-red-900 text-red-900' : ''}`} /> {entry.likes}
-                                                </span>
+                                        <div className={`${viewMode === 'LIST' ? `w-40 text-right border-l pl-6 ${theme.divider}` : `flex items-center justify-between mt-6 pt-4 border-t ${theme.divider}`}`}>
+                                            <div onClick={(e) => e.stopPropagation()}>
+                                                <UserHoverCard userId={entry.authorId || 'unknown'} username={entry.author} currentUser={user} onInspectUser={onInspectUser} isLightTheme={isLightTheme}>
+                                                    <div className={`text-[10px] font-mono mb-1 ${theme.textMuted} hover:text-gold`}>{entry.author}</div>
+                                                </UserHoverCard>
+                                            </div>
+                                            <div className={`flex items-center gap-3 text-xs justify-end ${isLightTheme ? 'text-stone-400' : 'text-parchment-dim/60'}`}>
+                                                {/* Collection (Bookmark) Button */}
+                                                <motion.button 
+                                                    onClick={(e) => { e.stopPropagation(); onBookmark(entry.id); }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    whileHover={{ scale: 1.1 }}
+                                                    className="relative flex items-center justify-center p-1"
+                                                    title="收藏"
+                                                >
+                                                     <motion.div
+                                                         initial={false}
+                                                         animate={isBookmarked ? {
+                                                             scale: [1, 0.8, 1.2, 1],
+                                                             y: [0, -2, 0],
+                                                             color: isLightTheme ? '#0891b2' : '#22d3ee' // cyan
+                                                         } : {
+                                                             scale: 1,
+                                                             y: 0,
+                                                             color: isLightTheme ? '#a8a29e' : '#9ca3af'
+                                                         }}
+                                                         transition={{ duration: 0.4 }}
+                                                     >
+                                                        <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
+                                                     </motion.div>
+                                                </motion.button>
+                                                
+                                                {/* Resonance (Like) Button */}
+                                                <motion.button 
+                                                    onClick={(e) => { e.stopPropagation(); onLike(entry.id); }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    whileHover={{ scale: 1.1 }}
+                                                    className="flex items-center gap-1 group/like relative p-1"
+                                                    title="共鸣"
+                                                >
+                                                    <motion.div
+                                                        animate={isLiked ? {
+                                                            scale: [1, 1.2, 1],
+                                                            rotate: [0, 45, 0],
+                                                            color: isLightTheme ? '#d97706' : '#e8c99b' // gold
+                                                        } : {
+                                                            scale: 1,
+                                                            rotate: 0,
+                                                            color: isLightTheme ? '#a8a29e' : '#9ca3af'
+                                                        }}
+                                                        transition={{ duration: 0.4 }}
+                                                    >
+                                                        <Sparkles className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`} />
+                                                    </motion.div>
+                                                    <span className={`text-[10px] font-mono ${isLiked ? (isLightTheme ? 'text-amber-600' : 'text-gold') : ''}`}>
+                                                        {entry.likes}
+                                                    </span>
+                                                </motion.button>
                                             </div>
                                         </div>
                                     </motion.div>
-                                ))}
+                                )})}
                                 </AnimatePresence>
                             </motion.div>
                         )}
@@ -1099,7 +1184,9 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                     </div>
 
                     <div className="flex flex-col gap-3">
-                        {recentEntries.map((entry, i) => (
+                        {recentEntries.map((entry, i) => {
+                             const isLiked = user.likedEntries.includes(entry.id);
+                             return (
                             <motion.div 
                                 key={entry.id}
                                 initial={{ opacity: 0, x: -20 }}
@@ -1131,12 +1218,16 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
 
                                 {/* Meta Info */}
                                 <div className={`flex items-center gap-6 text-[10px] font-mono shrink-0 pl-4 border-l ${theme.divider} ${theme.textMuted}`}>
-                                    <span className="hidden sm:inline-block">{entry.author}</span>
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                        <UserHoverCard userId={entry.authorId || 'unknown'} username={entry.author} currentUser={user} onInspectUser={onInspectUser} isLightTheme={isLightTheme}>
+                                            <span className="hidden sm:inline-block hover:text-gold cursor-pointer">{entry.author}</span>
+                                        </UserHoverCard>
+                                    </div>
                                     <span>{new Date(entry.createdAt).toLocaleDateString()}</span>
-                                    <Heart className={`w-3 h-3 group-hover:text-red-400 ${user.favorites.includes(entry.id) ? 'fill-red-900 text-red-900' : ''}`} />
+                                    {isLiked && <Sparkles className={`w-3 h-3 ${isLightTheme ? 'fill-amber-500 text-amber-500' : 'fill-gold text-gold'}`} />}
                                 </div>
                             </motion.div>
-                        ))}
+                        )})}
                     </div>
                   </motion.div>
                 )}
@@ -1161,7 +1252,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
-                className={`relative w-full max-w-4xl h-full md:h-auto max-h-[90vh] border rounded-sm shadow-2xl flex flex-col md:flex-row overflow-hidden ${isLightTheme ? 'bg-white border-stone-200' : 'bg-obsidian border-gold/20'}`}
+                className={`relative w-full max-w-6xl h-full border rounded-sm shadow-2xl flex flex-col md:flex-row overflow-hidden ${isLightTheme ? 'bg-white border-stone-200' : 'bg-obsidian border-gold/20'}`}
             >
                 
                 {/* Modal Left: Content */}
@@ -1187,10 +1278,20 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                         </div>
                      </div>
 
-                     <div className={`prose max-w-none font-serif ${isLightTheme ? 'prose-stone prose-p:text-stone-600 prose-headings:text-stone-800 prose-a:text-amber-600' : 'prose-invert prose-p:text-parchment-dim prose-headings:text-parchment prose-a:text-gold'}`}>
+                     <div className={`prose max-w-none font-serif mb-16 ${isLightTheme ? 'prose-stone prose-p:text-stone-600 prose-headings:text-stone-800 prose-a:text-amber-600' : 'prose-invert prose-p:text-parchment-dim prose-headings:text-parchment prose-a:text-gold'}`}>
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {selectedEntry.content}
                         </ReactMarkdown>
+                     </div>
+
+                     {/* COMMENT SECTION */}
+                     <div className="mt-8 border-t border-dashed border-opacity-20 pt-8" style={{ borderColor: isLightTheme ? '#d6d3d1' : 'rgba(255,255,255,0.1)' }}>
+                        <CommentSection 
+                            entryId={selectedEntry.id}
+                            currentUser={user}
+                            isLightTheme={isLightTheme}
+                            onInspectUser={onInspectUser}
+                        />
                      </div>
                 </div>
 
@@ -1202,20 +1303,47 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                  <UserIcon className={`w-4 h-4 ${theme.textDim}`} />
                              </div>
                              <div>
-                                 <div className={`text-xs font-bold ${isLightTheme ? 'text-stone-800' : 'text-parchment'}`}>{selectedEntry.author}</div>
+                                 <div className={`text-xs font-bold ${isLightTheme ? 'text-stone-800' : 'text-parchment'}`}>
+                                     <UserHoverCard userId={selectedEntry.authorId || 'unknown'} username={selectedEntry.author} currentUser={user} onInspectUser={onInspectUser} isLightTheme={isLightTheme}>
+                                        <span className="hover:text-gold cursor-pointer">{selectedEntry.author}</span>
+                                     </UserHoverCard>
+                                 </div>
                                  <div className={`text-[9px] font-mono ${theme.textMuted}`}>AUTHOR_ID: {selectedEntry.authorId?.slice(0,6) || 'UNKNOWN'}</div>
                              </div>
                         </div>
-                        <button 
+                    </div>
+                    
+                    {/* Action Bar */}
+                    <div className={`flex gap-3 mb-8 pb-8 border-b ${theme.divider}`}>
+                         {/* Resonance Button */}
+                         <button 
                             onClick={() => onLike(selectedEntry.id)}
-                            className={`p-2 rounded-full transition-colors group ${isLightTheme ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
-                        >
-                            <Heart className={`w-5 h-5 group-hover:scale-110 transition-transform ${user.favorites.includes(selectedEntry.id) ? (isLightTheme ? 'fill-red-600 text-red-600' : 'fill-gold text-gold') : theme.textDim}`} />
-                        </button>
+                            className={`flex-1 py-2 rounded-sm border flex items-center justify-center gap-2 transition-all group ${user.likedEntries.includes(selectedEntry.id) ? (isLightTheme ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-gold/10 border-gold/30 text-gold') : (isLightTheme ? 'border-stone-200 text-stone-500 hover:bg-stone-50' : 'border-white/10 text-parchment-dim hover:bg-white/5')}`}
+                         >
+                            <motion.div
+                                animate={user.likedEntries.includes(selectedEntry.id) ? { rotate: [0, 45, 0], scale: [1, 1.2, 1] } : {}}
+                            >
+                                <Sparkles className={`w-4 h-4 ${user.likedEntries.includes(selectedEntry.id) ? 'fill-current' : ''}`} />
+                            </motion.div>
+                            <span className="text-xs font-bold uppercase tracking-wider">{user.likedEntries.includes(selectedEntry.id) ? '已共鸣' : '共鸣'}</span>
+                         </button>
+                         
+                         {/* Collection Button */}
+                         <button 
+                            onClick={() => onBookmark(selectedEntry.id)}
+                            className={`flex-1 py-2 rounded-sm border flex items-center justify-center gap-2 transition-all ${user.bookmarks.includes(selectedEntry.id) ? (isLightTheme ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400') : (isLightTheme ? 'border-stone-200 text-stone-500 hover:bg-stone-50' : 'border-white/10 text-parchment-dim hover:bg-white/5')}`}
+                         >
+                            <motion.div
+                                animate={user.bookmarks.includes(selectedEntry.id) ? { y: [0, -2, 0], scale: [1, 1.1, 1] } : {}}
+                            >
+                                <Bookmark className={`w-4 h-4 ${user.bookmarks.includes(selectedEntry.id) ? 'fill-current' : ''}`} />
+                            </motion.div>
+                            <span className="text-xs font-bold uppercase tracking-wider">{user.bookmarks.includes(selectedEntry.id) ? '已收藏' : '收藏'}</span>
+                         </button>
                     </div>
 
                     {/* Parameter Evaluation Panel */}
-                    <div className={`space-y-6 border-t pt-6 mb-8 ${theme.divider}`}>
+                    <div className={`space-y-6`}>
                          <h3 className={`text-[10px] font-bold uppercase tracking-widest font-mono mb-4 ${theme.textDim}`}>收录参数评估 / PARAMETERS</h3>
                          
                          {/* Realism */}

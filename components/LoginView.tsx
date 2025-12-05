@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Lock, Mail, User as UserIcon, ArrowRight, Key, Sun, Moon } from 'lucide-react';
@@ -49,7 +50,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, isLightTheme, onT
         username: isRegister ? username : (email.split('@')[0] || '未知特工'),
         email: email,
         joinDate: Date.now(),
-        favorites: []
+        likedEntries: [],
+        bookmarks: []
       });
     }, 1200);
   };

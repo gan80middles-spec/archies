@@ -1,16 +1,20 @@
-
 import React, { useState, useEffect } from 'react';
 import { ArchiveView } from './components/ArchiveView';
 import { EditorWorkspace } from './components/EditorWorkspace';
 import { LoginView } from './components/LoginView';
 import { ProfileView } from './components/ProfileView';
+import { NotificationsView } from './components/NotificationsView';
 import { INITIAL_ENTRIES, INITIAL_TERMS } from './constants';
 import { Entry, User, Category, Term } from './types';
 
-type ViewState = 'ARCHIVE' | 'EDITOR' | 'PROFILE';
+type ViewState = 'ARCHIVE' | 'EDITOR' | 'PROFILE' | 'NOTIFICATIONS';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  
+  // New state to track which user profile is being viewed
+  const [viewedUser, setViewedUser] = useState<User | null>(null);
+
   const [currentView, setCurrentView] = useState<ViewState>('ARCHIVE');
   const [entries, setEntries] = useState<Entry[]>(INITIAL_ENTRIES);
   const [terms, setTerms] = useState<Term[]>(INITIAL_TERMS);
@@ -40,7 +44,37 @@ export default function App() {
   };
 
   const handleNavigateToProfile = () => {
+    // Navigate to own profile
+    setViewedUser(null); 
     setCurrentView('PROFILE');
+  };
+
+  // Logic to view any user's profile
+  const handleInspectUser = (userId: string, username: string, avatarUrl?: string) => {
+      // Create a temporary User object for the view since we don't have a backend to fetch full user details by ID immediately.
+      // In a real app, ProfileView would fetch data by ID. Here we pass what we know.
+      const mockViewedUser: User = {
+          id: userId,
+          username: username,
+          email: 'restricted@omni.net',
+          joinDate: Date.now() - 10000000,
+          likedEntries: [],
+          bookmarks: [],
+          avatar: avatarUrl,
+          bio: 'Data redacted. Accessing public record.' // Default bio for visited profiles
+      };
+      
+      // If inspecting self, just clear viewedUser to use 'user' state
+      if (user && userId === user.id) {
+          setViewedUser(null);
+      } else {
+          setViewedUser(mockViewedUser);
+      }
+      setCurrentView('PROFILE');
+  };
+
+  const handleNavigateToNotifications = () => {
+    setCurrentView('NOTIFICATIONS');
   };
 
   const handleLogout = () => {
@@ -63,19 +97,21 @@ export default function App() {
 
   const handleUpdateProfile = (data: Partial<User>) => {
       if (!user) return;
+      // If we are updating our own profile
       setUser({ ...user, ...data });
   };
 
   const handleLike = (id: string) => {
       if (!user) return;
-      const isLiked = user.favorites.includes(id);
+      // Use likedEntries instead of favorites
+      const isLiked = user.likedEntries.includes(id);
       
       // Update User State
       setUser(prev => prev ? ({
           ...prev,
-          favorites: isLiked 
-            ? prev.favorites.filter(fid => fid !== id)
-            : [...prev.favorites, id]
+          likedEntries: isLiked 
+            ? prev.likedEntries.filter(fid => fid !== id)
+            : [...prev.likedEntries, id]
       }) : null);
 
       // Update Entry State (optimistic UI)
@@ -85,6 +121,18 @@ export default function App() {
           }
           return e;
       }));
+  };
+
+  const handleBookmark = (id: string) => {
+      if (!user) return;
+      const isBookmarked = user.bookmarks.includes(id);
+      
+      setUser(prev => prev ? ({
+          ...prev,
+          bookmarks: isBookmarked
+            ? prev.bookmarks.filter(bid => bid !== id)
+            : [...prev.bookmarks, id]
+      }) : null);
   };
 
   const handleUpdateTerm = (updatedTerm: Term) => {
@@ -119,9 +167,12 @@ export default function App() {
             user={user} 
             onNavigateToEditor={handleNavigateToEditor} 
             onNavigateToProfile={handleNavigateToProfile}
+            onNavigateToNotifications={handleNavigateToNotifications}
             onLike={handleLike}
+            onBookmark={handleBookmark}
             isLightTheme={isLightTheme}
             onToggleTheme={toggleTheme}
+            onInspectUser={handleInspectUser}
         />
       )}
       
@@ -142,16 +193,25 @@ export default function App() {
 
       {currentView === 'PROFILE' && (
         <ProfileView 
-            user={user} 
-            currentUser={user}
+            user={viewedUser || user} // Display inspected user or current user
+            currentUser={user} // Always pass the logged in user as currentUser
             entries={entries} 
             onBack={() => setCurrentView('ARCHIVE')} 
             onLogout={handleLogout}
             onUpdateProfile={handleUpdateProfile}
             onLike={handleLike}
+            onBookmark={handleBookmark}
             isLightTheme={isLightTheme}
             onToggleTheme={toggleTheme}
             onNavigateToEditor={handleNavigateToEditor}
+            onInspectUser={handleInspectUser}
+        />
+      )}
+
+      {currentView === 'NOTIFICATIONS' && (
+        <NotificationsView 
+            onBack={() => setCurrentView('ARCHIVE')}
+            isLightTheme={isLightTheme}
         />
       )}
     </>

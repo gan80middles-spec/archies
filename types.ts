@@ -41,7 +41,8 @@ export interface User {
   headerImage?: string; // URL or Base64 string for profile banner
   backgroundImage?: string; // URL or Base64 string for full page background
   bio?: string;
-  favorites: string[]; // List of Entry IDs
+  likedEntries: string[]; // List of Entry IDs (Renamed from favorites)
+  bookmarks: string[];    // New: List of Bookmarked Entry IDs
 }
 
 export interface Entry {
