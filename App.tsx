@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { ArchiveView } from './components/ArchiveView';
+import { ArchiveDetailView } from './components/ArchiveDetailView';
 import { EditorWorkspace } from './components/EditorWorkspace';
 import { LoginView } from './components/LoginView';
 import { ProfileView } from './components/ProfileView';
@@ -7,13 +9,16 @@ import { NotificationsView } from './components/NotificationsView';
 import { INITIAL_ENTRIES, INITIAL_TERMS } from './constants';
 import { Entry, User, Category, Term } from './types';
 
-type ViewState = 'ARCHIVE' | 'EDITOR' | 'PROFILE' | 'NOTIFICATIONS';
+type ViewState = 'ARCHIVE' | 'EDITOR' | 'PROFILE' | 'NOTIFICATIONS' | 'ENTRY_DETAIL';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   
   // New state to track which user profile is being viewed
   const [viewedUser, setViewedUser] = useState<User | null>(null);
+  
+  // Track which entry is currently being viewed in Detail Page
+  const [viewedEntryId, setViewedEntryId] = useState<string | null>(null);
 
   const [currentView, setCurrentView] = useState<ViewState>('ARCHIVE');
   const [entries, setEntries] = useState<Entry[]>(INITIAL_ENTRIES);
@@ -47,6 +52,12 @@ export default function App() {
     // Navigate to own profile
     setViewedUser(null); 
     setCurrentView('PROFILE');
+  };
+  
+  // New: Navigate to Entry Detail Page
+  const handleNavigateToEntry = (entryId: string) => {
+      setViewedEntryId(entryId);
+      setCurrentView('ENTRY_DETAIL');
   };
 
   // Logic to view any user's profile
@@ -154,6 +165,9 @@ export default function App() {
       };
       handleUpdateTerm(updated);
   };
+  
+  // Find current entry for detail view
+  const currentEntry = viewedEntryId ? entries.find(e => e.id === viewedEntryId) : null;
 
   if (!user) {
     return <LoginView onLogin={handleLogin} isLightTheme={isLightTheme} onToggleTheme={toggleTheme} />;
@@ -168,11 +182,28 @@ export default function App() {
             onNavigateToEditor={handleNavigateToEditor} 
             onNavigateToProfile={handleNavigateToProfile}
             onNavigateToNotifications={handleNavigateToNotifications}
+            onNavigateToEntry={handleNavigateToEntry}
             onLike={handleLike}
             onBookmark={handleBookmark}
             isLightTheme={isLightTheme}
             onToggleTheme={toggleTheme}
             onInspectUser={handleInspectUser}
+        />
+      )}
+      
+      {currentView === 'ENTRY_DETAIL' && currentEntry && (
+        <ArchiveDetailView
+            entry={currentEntry}
+            currentUser={user}
+            onBack={() => setCurrentView('ARCHIVE')}
+            onLike={handleLike}
+            onBookmark={handleBookmark}
+            onInspectUser={handleInspectUser}
+            isLightTheme={isLightTheme}
+            onToggleTheme={toggleTheme}
+            onNavigateToEditor={handleNavigateToEditor}
+            onNavigateToProfile={handleNavigateToProfile}
+            onLogout={handleLogout}
         />
       )}
       

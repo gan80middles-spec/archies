@@ -1,10 +1,11 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Entry, Category, CATEGORY_ICONS, CATEGORY_COLORS, CATEGORY_DESCRIPTIONS, User, REALISM_DESCRIPTIONS, RISK_DESCRIPTIONS, ANOMALOUS_DESCRIPTIONS } from '../types';
-import { Search, Hash, ChevronRight, Grid, List, Database, User as UserIcon, Plus, Dna, Sword, Globe, Scroll, Gem, Users, Flag, Map, Zap, Landmark, Scale, BookOpen, Sparkles, Sun, Moon, Activity, ArrowUpRight, Clock, Eye, PenTool, Bookmark, Bell } from 'lucide-react';
+import { Search, Hash, ChevronRight, Grid, List, Database, User as UserIcon, Plus, Dna, Sword, Globe, Scroll, Gem, Users, Flag, Map, Zap, Landmark, Scale, BookOpen, Sparkles, Sun, Moon, Activity, ArrowUpRight, Clock, Eye, PenTool, Bookmark, Bell, Filter, SlidersHorizontal, Calendar, ArrowRight, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { CommentSection } from './CommentSection';
+// UserHoverCard is still used in the list cards
 import { UserHoverCard } from './UserHoverCard';
 
 interface ArchiveViewProps {
@@ -13,6 +14,7 @@ interface ArchiveViewProps {
   onNavigateToEditor: (category?: Category) => void;
   onNavigateToProfile: () => void;
   onNavigateToNotifications: () => void;
+  onNavigateToEntry: (entryId: string) => void; // New Prop for Page Navigation
   onLike: (id: string) => void;
   onBookmark: (id: string) => void;
   isLightTheme: boolean;
@@ -203,6 +205,230 @@ const InteractiveHeroLogo = ({ isLightTheme }: { isLightTheme: boolean }) => {
             
             {/* Glow Effect */}
             <div className={`absolute inset-0 blur-2xl opacity-20 transition-opacity duration-1000 ${isLightTheme ? 'bg-amber-500' : 'bg-gold'}`}></div>
+        </div>
+    );
+};
+
+// --- ADVANCED SEARCH PANEL ---
+const AdvancedSearchPanel = ({ 
+    isVisible, 
+    isLightTheme, 
+    onSearch, 
+    onClose 
+}: { 
+    isVisible: boolean; 
+    isLightTheme: boolean; 
+    onSearch: (params: any) => void;
+    onClose: () => void;
+}) => {
+    // Mock States for Advanced Filters
+    const [category, setCategory] = useState<string>('ALL');
+    const [risk, setRisk] = useState<string>('ALL');
+    const [timeframe, setTimeframe] = useState<string>('ALL');
+    const [sort, setSort] = useState<string>('RELEVANCE');
+
+    // Theme Helpers
+    const borderColor = isLightTheme ? 'border-amber-200' : 'border-gold/20';
+    const bgColor = isLightTheme ? 'bg-white' : 'bg-obsidian-light/90';
+    const textColor = isLightTheme ? 'text-stone-700' : 'text-parchment';
+    const labelColor = isLightTheme ? 'text-stone-500' : 'text-parchment-dim';
+    const selectBg = isLightTheme ? 'bg-stone-50' : 'bg-black/20';
+    const selectBorder = isLightTheme ? 'border-stone-200 focus:border-amber-400' : 'border-white/10 focus:border-gold/40';
+
+    const handleSearch = () => {
+        onSearch({ category, risk, timeframe, sort });
+    };
+
+    return (
+        <AnimatePresence>
+            {isVisible && (
+                <motion.div
+                    initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                    animate={{ height: 'auto', opacity: 1, marginTop: 24 }}
+                    exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className={`w-full max-w-2xl mx-auto overflow-hidden rounded-sm border shadow-2xl backdrop-blur-md relative ${borderColor} ${bgColor}`}
+                >
+                    <div className="p-6 relative">
+                        <button onClick={onClose} className={`absolute top-4 right-4 p-1 rounded-sm opacity-50 hover:opacity-100 transition-opacity ${textColor}`}>
+                            <X className="w-4 h-4" />
+                        </button>
+                        
+                        <h3 className={`text-xs font-bold uppercase tracking-widest font-mono mb-6 flex items-center gap-2 ${labelColor}`}>
+                            <SlidersHorizontal className="w-3 h-3" /> 高级检索参数 / ADVANCED_QUERY
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            {/* Category */}
+                            <div>
+                                <label className={`block text-[10px] font-mono font-bold uppercase mb-2 ${labelColor}`}>档案扇区 / Sector</label>
+                                <select 
+                                    value={category}
+                                    onChange={(e) => setCategory(e.target.value)}
+                                    className={`w-full text-xs p-2.5 rounded-sm border outline-none font-serif ${selectBg} ${selectBorder} ${textColor}`}
+                                >
+                                    <option value="ALL">全域检索 (All Sectors)</option>
+                                    {Object.values(Category).map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                             {/* Risk Level */}
+                             <div>
+                                <label className={`block text-[10px] font-mono font-bold uppercase mb-2 ${labelColor}`}>风险等级 / Clearance</label>
+                                <select 
+                                    value={risk}
+                                    onChange={(e) => setRisk(e.target.value)}
+                                    className={`w-full text-xs p-2.5 rounded-sm border outline-none font-serif ${selectBg} ${selectBorder} ${textColor}`}
+                                >
+                                    <option value="ALL">全部等级 (Any Risk)</option>
+                                    <option value="LOW">低风险 (Safe/Low)</option>
+                                    <option value="MEDIUM">中等风险 (Caution)</option>
+                                    <option value="HIGH">极度危险 (Critical/Fatal)</option>
+                                </select>
+                            </div>
+
+                            {/* Timeframe */}
+                            <div>
+                                <label className={`block text-[10px] font-mono font-bold uppercase mb-2 ${labelColor}`}>收录时间 / Timeframe</label>
+                                <select 
+                                    value={timeframe}
+                                    onChange={(e) => setTimeframe(e.target.value)}
+                                    className={`w-full text-xs p-2.5 rounded-sm border outline-none font-serif ${selectBg} ${selectBorder} ${textColor}`}
+                                >
+                                    <option value="ALL">历史记录 (All Time)</option>
+                                    <option value="WEEK">最近一周 (Recent Cycle)</option>
+                                    <option value="MONTH">最近一月 (Lunar Cycle)</option>
+                                    <option value="YEAR">本年度 (Solar Cycle)</option>
+                                </select>
+                            </div>
+
+                            {/* Sort Order */}
+                            <div>
+                                <label className={`block text-[10px] font-mono font-bold uppercase mb-2 ${labelColor}`}>排序协议 / Sort Protocol</label>
+                                <select 
+                                    value={sort}
+                                    onChange={(e) => setSort(e.target.value)}
+                                    className={`w-full text-xs p-2.5 rounded-sm border outline-none font-serif ${selectBg} ${selectBorder} ${textColor}`}
+                                >
+                                    <option value="RELEVANCE">相关度 (Relevance)</option>
+                                    <option value="NEWEST">最新收录 (Newest First)</option>
+                                    <option value="OLDEST">最旧收录 (Oldest First)</option>
+                                    <option value="POPULAR">共鸣热度 (Resonance)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className={`border-t pt-4 flex justify-end gap-3 ${isLightTheme ? 'border-stone-100' : 'border-white/5'}`}>
+                             <button 
+                                onClick={onClose}
+                                className={`px-4 py-2 text-xs font-bold uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity ${textColor}`}
+                             >
+                                取消
+                             </button>
+                             <button 
+                                onClick={handleSearch}
+                                className={`px-6 py-2 rounded-sm text-xs font-bold uppercase tracking-widest flex items-center gap-2 shadow-lg transition-transform active:scale-95 ${isLightTheme ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gold text-obsidian hover:bg-[#c5a676]'}`}
+                             >
+                                <Filter className="w-3 h-3" /> 执行过滤
+                             </button>
+                        </div>
+                    </div>
+                    {/* Decorative Corner */}
+                    <div className={`absolute bottom-0 right-0 w-4 h-4 border-b border-r ${borderColor}`}></div>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
+
+// --- CENTRAL SEARCH HERO COMPONENT ---
+const CentralSearchHero = ({ 
+    isLightTheme, 
+    onSearch 
+}: { 
+    isLightTheme: boolean; 
+    onSearch: (query: string, advancedParams?: any) => void;
+}) => {
+    const [inputValue, setInputValue] = useState('');
+    const [showAdvanced, setShowAdvanced] = useState(false);
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            onSearch(inputValue);
+        }
+    };
+
+    const handleSubmit = () => {
+        onSearch(inputValue);
+    };
+
+    const handleAdvancedSearch = (params: any) => {
+        // In a real app, we would merge 'inputValue' + params and trigger the search
+        // For now, we just pass the input value to trigger the list view, 
+        // assuming filter logic would be handled by the parent or API in a real implementation.
+        // We log the params for now.
+        console.log("Advanced Params:", params);
+        onSearch(inputValue || " ", params); // Pass a space if empty to force list view open
+    };
+
+    const theme = isLightTheme ? {
+        inputBg: 'bg-white/80',
+        inputBorder: 'border-stone-300 focus:border-amber-500',
+        text: 'text-stone-800 placeholder:text-stone-400',
+        icon: 'text-stone-400',
+        button: 'bg-amber-600 hover:bg-amber-700 text-white',
+        link: 'text-stone-500 hover:text-amber-700'
+    } : {
+        inputBg: 'bg-black/40',
+        inputBorder: 'border-white/10 focus:border-gold/50',
+        text: 'text-parchment placeholder:text-parchment-dim/30',
+        icon: 'text-parchment-dim/50',
+        button: 'bg-gold hover:bg-[#c5a676] text-obsidian',
+        link: 'text-parchment-dim hover:text-gold'
+    };
+
+    return (
+        <div className="w-full max-w-xl mx-auto mt-10 relative z-20">
+            <div className="relative group">
+                <div className={`absolute inset-0 blur-xl opacity-0 transition-opacity duration-500 group-focus-within:opacity-20 ${isLightTheme ? 'bg-amber-400' : 'bg-gold'}`}></div>
+                <div className={`relative flex items-center rounded-sm border backdrop-blur-sm transition-all duration-300 shadow-lg ${theme.inputBg} ${theme.inputBorder}`}>
+                    <Search className={`w-5 h-5 ml-4 ${theme.icon}`} />
+                    <input 
+                        type="text" 
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="检索协议、档案、术语..."
+                        className={`w-full py-4 px-4 bg-transparent outline-none font-mono text-sm tracking-wide ${theme.text}`}
+                    />
+                    <button 
+                        onClick={handleSubmit}
+                        className={`mr-2 px-4 py-1.5 rounded-sm text-xs font-bold uppercase tracking-widest transition-transform active:scale-95 ${theme.button}`}
+                    >
+                        Search
+                    </button>
+                </div>
+            </div>
+            
+            <div className="flex justify-center mt-4">
+                <button 
+                    onClick={() => setShowAdvanced(!showAdvanced)}
+                    className={`text-[10px] font-mono font-bold uppercase tracking-widest flex items-center gap-1 transition-colors ${theme.link}`}
+                >
+                    {showAdvanced ? '关闭高级面板' : '高级检索'} 
+                    <span className="opacity-50">// ADVANCED_QUERY</span>
+                    {showAdvanced ? <X className="w-3 h-3"/> : <ChevronRight className="w-3 h-3" />}
+                </button>
+            </div>
+
+            <AdvancedSearchPanel 
+                isVisible={showAdvanced} 
+                isLightTheme={isLightTheme} 
+                onSearch={handleAdvancedSearch} 
+                onClose={() => setShowAdvanced(false)}
+            />
         </div>
     );
 };
@@ -648,12 +874,11 @@ const SectorCard = ({
     );
 };
 
-export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavigateToEditor, onNavigateToProfile, onNavigateToNotifications, onLike, onBookmark, isLightTheme, onToggleTheme, onInspectUser }) => {
+export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavigateToEditor, onNavigateToProfile, onNavigateToNotifications, onNavigateToEntry, onLike, onBookmark, isLightTheme, onToggleTheme, onInspectUser }) => {
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [bootingCategory, setBootingCategory] = useState<Category | null>(null);
   const [isBootingEditor, setIsBootingEditor] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
   
   // Notification Count State
@@ -797,6 +1022,21 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
           onNavigateToEditor();
       }, 1200);
   };
+  
+  // Handle Search Execution from Center or Header
+  const handleSearchExecute = (query: string, advancedParams?: any) => {
+      setSearchQuery(query);
+      if (advancedParams) {
+          // In a real app, apply filters. For now, we rely on searchQuery to show the list view.
+          if (advancedParams.category && advancedParams.category !== 'ALL') {
+              setCurrentCategory(advancedParams.category as Category);
+          } else {
+              setCurrentCategory(null);
+          }
+      }
+  };
+
+  const isHeroVisible = !currentCategory && !searchQuery;
 
   return (
     <div className={`min-h-screen font-sans selection:bg-gold/30 selection:text-white transition-colors duration-500 ${isLightTheme ? 'bg-obsidian text-stone-800' : 'bg-obsidian text-parchment'}`}>
@@ -818,7 +1058,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
           <div className="flex items-center gap-6">
              <div 
                 className={`font-serif text-xl tracking-wide cursor-pointer flex items-center gap-3 hover:text-gold transition-colors ${isLightTheme ? 'text-stone-800' : 'text-parchment'}`}
-                onClick={() => setCurrentCategory(null)}
+                onClick={() => { setCurrentCategory(null); setSearchQuery(''); }}
              >
                 <div className={`w-8 h-8 rounded-sm flex items-center justify-center border shadow-[0_0_15px_rgba(232,201,155,0.1)] ${isLightTheme ? 'bg-amber-50 border-amber-200' : 'bg-gradient-to-br from-gold/20 to-gold/5 border-gold/20'}`}>
                     {/* New OmniEye Logo Small - Thinner Strokes */}
@@ -837,8 +1077,8 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
              <nav className={`hidden md:flex items-center text-sm font-medium ${isLightTheme ? 'text-stone-500' : 'text-parchment-dim'}`}>
                <span className="opacity-20 mx-3">/</span>
                <span 
-                 onClick={() => setCurrentCategory(null)}
-                 className={`cursor-pointer transition-colors ${!currentCategory ? (isLightTheme ? 'text-amber-600 font-serif' : 'text-gold font-serif') : 'hover:opacity-80'}`}
+                 onClick={() => { setCurrentCategory(null); setSearchQuery(''); }}
+                 className={`cursor-pointer transition-colors ${!currentCategory && !searchQuery ? (isLightTheme ? 'text-amber-600 font-serif' : 'text-gold font-serif') : 'hover:opacity-80'}`}
                >
                  大厅
                </span>
@@ -859,8 +1099,8 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
           </div>
           
           <div className="flex items-center gap-4">
-             {/* Search Bar - Header Compact */}
-             <div className="hidden lg:flex relative group">
+             {/* Search Bar - Header Compact - HIDDEN ON HERO */}
+             <div className={`hidden lg:flex relative group transition-opacity duration-300 ${isHeroVisible ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                 <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 group-focus-within:text-gold transition-colors ${isLightTheme ? 'text-stone-400' : 'text-parchment-dim'}`} />
                 <input 
                   type="text" 
@@ -938,7 +1178,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
             
             {/* HERO SECTION - Only show when no category selected */}
             <AnimatePresence>
-            {!currentCategory && !searchQuery && (
+            {isHeroVisible && (
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -956,10 +1196,14 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                    <h1 className={`text-5xl md:text-7xl font-serif mb-6 tracking-tight ${isLightTheme ? 'text-stone-800' : 'text-parchment'}`}>
                       欢迎进入<span className={`italic ${isLightTheme ? 'text-amber-600' : 'text-gold'}`}>档案馆</span>
                    </h1>
-                   <p className={`max-w-2xl mx-auto text-lg font-light leading-relaxed ${isLightTheme ? 'text-stone-600' : 'text-parchment-dim'}`}>
+                   <p className={`max-w-2xl mx-auto text-lg font-light leading-relaxed mb-8 ${isLightTheme ? 'text-stone-600' : 'text-parchment-dim'}`}>
                       此处收录了世界的每一次呼吸。从宏大的文明兴衰，到微小的突变异种。<br/>
                       请选择一个扇区开始您的探索，或直接检索核心数据库。
                    </p>
+
+                   {/* CENTRAL SEARCH HERO */}
+                   <CentralSearchHero isLightTheme={isLightTheme} onSearch={handleSearchExecute} />
+
                 </motion.div>
             )}
             </AnimatePresence>
@@ -969,7 +1213,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                 
                 {/* CATEGORY GRID */}
                 <AnimatePresence mode='wait'>
-                {!currentCategory && !searchQuery && (
+                {isHeroVisible && (
                   <motion.div 
                     key="category-grid"
                     className="mb-24"
@@ -1061,7 +1305,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                         animate="show"
                                         exit="exit"
                                         transition={{ delay: index * 0.05 }}
-                                        onClick={() => setSelectedEntry(entry)}
+                                        onClick={() => onNavigateToEntry(entry.id)}
                                         whileHover={{ scale: 1.02 }}
                                         className={`group relative overflow-hidden backdrop-blur-sm border rounded-sm p-6 cursor-pointer transition-colors duration-500 transform-gpu ${theme.bgCard} ${theme.border} ${theme.bgHover} ${viewMode === 'LIST' ? 'flex gap-6 items-center' : ''} ${isLightTheme ? 'hover:shadow-lg hover:border-amber-300' : 'hover:shadow-xl hover:border-gold/30'}`}
                                     >
@@ -1168,7 +1412,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                 
                 {/* LATEST ENTRIES (Full Width List) */}
                 <AnimatePresence>
-                {!currentCategory && !searchQuery && (
+                {isHeroVisible && (
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1192,7 +1436,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.1 * i }}
-                                onClick={() => setSelectedEntry(entry)}
+                                onClick={() => onNavigateToEntry(entry.id)}
                                 className={`group flex items-center gap-6 border rounded-sm p-4 cursor-pointer transition-colors duration-500 transform-gpu hover:translate-x-1 ${theme.bgCard} ${theme.border} ${isLightTheme ? 'hover:bg-white hover:border-amber-400' : 'bg-obsidian-light/40 hover:border-gold/30 hover:bg-white/5'}`}
                             >
                                 {/* Category Icon & Name */}
@@ -1235,183 +1479,6 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
             </div>
         </div>
       </main>
-
-      {/* Entry Detail Modal */}
-      <AnimatePresence>
-      {selectedEntry && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8">
-            <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
-                onClick={() => setSelectedEntry(null)}
-            ></motion.div>
-            <motion.div 
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
-                className={`relative w-full max-w-6xl h-full border rounded-sm shadow-2xl flex flex-col md:flex-row overflow-hidden ${isLightTheme ? 'bg-white border-stone-200' : 'bg-obsidian border-gold/20'}`}
-            >
-                
-                {/* Modal Left: Content */}
-                <div className={`flex-1 overflow-y-auto custom-scrollbar p-8 md:p-12 relative ${theme.modalContent}`}>
-                     <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-transparent to-transparent ${isLightTheme ? 'via-amber-400/50' : 'via-gold/50'}`}></div>
-                     <button 
-                        onClick={() => setSelectedEntry(null)}
-                        className={`absolute top-4 right-4 md:hidden p-2 ${theme.textDim}`}
-                     >
-                        Close
-                     </button>
-
-                     <div className="mb-8">
-                        <div className="flex items-center gap-3 mb-4">
-                            <span className={`px-2 py-1 text-[10px] font-bold uppercase tracking-widest border rounded-sm font-mono ${isLightTheme ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-gold/10 text-gold border-gold/20'}`}>{selectedEntry.category}</span>
-                            <span className={`text-xs font-mono ${theme.textMuted}`}>{new Date(selectedEntry.createdAt).toLocaleString()}</span>
-                        </div>
-                        <h1 className={`text-4xl font-serif mb-4 ${isLightTheme ? 'text-stone-900' : 'text-parchment'}`}>{selectedEntry.title}</h1>
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            {selectedEntry.tags.map(tag => (
-                                <span key={tag} className={`text-xs px-2 py-1 rounded-sm font-mono ${theme.tagBg} ${isLightTheme ? 'text-stone-500' : 'text-parchment-dim/60'}`}>#{tag}</span>
-                            ))}
-                        </div>
-                     </div>
-
-                     <div className={`prose max-w-none font-serif mb-16 ${isLightTheme ? 'prose-stone prose-p:text-stone-600 prose-headings:text-stone-800 prose-a:text-amber-600' : 'prose-invert prose-p:text-parchment-dim prose-headings:text-parchment prose-a:text-gold'}`}>
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {selectedEntry.content}
-                        </ReactMarkdown>
-                     </div>
-
-                     {/* COMMENT SECTION */}
-                     <div className="mt-8 border-t border-dashed border-opacity-20 pt-8" style={{ borderColor: isLightTheme ? '#d6d3d1' : 'rgba(255,255,255,0.1)' }}>
-                        <CommentSection 
-                            entryId={selectedEntry.id}
-                            currentUser={user}
-                            isLightTheme={isLightTheme}
-                            onInspectUser={onInspectUser}
-                        />
-                     </div>
-                </div>
-
-                {/* Modal Right: Meta & Stats (Sidebar) */}
-                <div className={`w-full md:w-80 border-l p-8 flex flex-col shrink-0 ${theme.modalSidebar} ${theme.divider}`}>
-                    <div className="flex items-center justify-between mb-8">
-                        <div className="flex items-center gap-3">
-                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isLightTheme ? 'bg-white border border-stone-200' : 'bg-white/5'}`}>
-                                 <UserIcon className={`w-4 h-4 ${theme.textDim}`} />
-                             </div>
-                             <div>
-                                 <div className={`text-xs font-bold ${isLightTheme ? 'text-stone-800' : 'text-parchment'}`}>
-                                     <UserHoverCard userId={selectedEntry.authorId || 'unknown'} username={selectedEntry.author} currentUser={user} onInspectUser={onInspectUser} isLightTheme={isLightTheme}>
-                                        <span className="hover:text-gold cursor-pointer">{selectedEntry.author}</span>
-                                     </UserHoverCard>
-                                 </div>
-                                 <div className={`text-[9px] font-mono ${theme.textMuted}`}>AUTHOR_ID: {selectedEntry.authorId?.slice(0,6) || 'UNKNOWN'}</div>
-                             </div>
-                        </div>
-                    </div>
-                    
-                    {/* Action Bar */}
-                    <div className={`flex gap-3 mb-8 pb-8 border-b ${theme.divider}`}>
-                         {/* Resonance Button */}
-                         <button 
-                            onClick={() => onLike(selectedEntry.id)}
-                            className={`flex-1 py-2 rounded-sm border flex items-center justify-center gap-2 transition-all group ${user.likedEntries.includes(selectedEntry.id) ? (isLightTheme ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-gold/10 border-gold/30 text-gold') : (isLightTheme ? 'border-stone-200 text-stone-500 hover:bg-stone-50' : 'border-white/10 text-parchment-dim hover:bg-white/5')}`}
-                         >
-                            <motion.div
-                                animate={user.likedEntries.includes(selectedEntry.id) ? { rotate: [0, 45, 0], scale: [1, 1.2, 1] } : {}}
-                            >
-                                <Sparkles className={`w-4 h-4 ${user.likedEntries.includes(selectedEntry.id) ? 'fill-current' : ''}`} />
-                            </motion.div>
-                            <span className="text-xs font-bold uppercase tracking-wider">{user.likedEntries.includes(selectedEntry.id) ? '已共鸣' : '共鸣'}</span>
-                         </button>
-                         
-                         {/* Collection Button */}
-                         <button 
-                            onClick={() => onBookmark(selectedEntry.id)}
-                            className={`flex-1 py-2 rounded-sm border flex items-center justify-center gap-2 transition-all ${user.bookmarks.includes(selectedEntry.id) ? (isLightTheme ? 'bg-cyan-50 border-cyan-200 text-cyan-700' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400') : (isLightTheme ? 'border-stone-200 text-stone-500 hover:bg-stone-50' : 'border-white/10 text-parchment-dim hover:bg-white/5')}`}
-                         >
-                            <motion.div
-                                animate={user.bookmarks.includes(selectedEntry.id) ? { y: [0, -2, 0], scale: [1, 1.1, 1] } : {}}
-                            >
-                                <Bookmark className={`w-4 h-4 ${user.bookmarks.includes(selectedEntry.id) ? 'fill-current' : ''}`} />
-                            </motion.div>
-                            <span className="text-xs font-bold uppercase tracking-wider">{user.bookmarks.includes(selectedEntry.id) ? '已收藏' : '收藏'}</span>
-                         </button>
-                    </div>
-
-                    {/* Parameter Evaluation Panel */}
-                    <div className={`space-y-6`}>
-                         <h3 className={`text-[10px] font-bold uppercase tracking-widest font-mono mb-4 ${theme.textDim}`}>收录参数评估 / PARAMETERS</h3>
-                         
-                         {/* Realism */}
-                         <div className="group relative">
-                             <div className="flex justify-between text-[10px] mb-1">
-                                 <span className={theme.textDim}>真实度 / REALISM</span>
-                                 <span className={isLightTheme ? 'text-amber-600' : 'text-gold'}>{selectedEntry.realism}/5</span>
-                             </div>
-                             <div className="flex gap-1 h-2 mb-1">
-                                 {Array.from({length: 5}).map((_, i) => (
-                                     <div key={i} className={`flex-1 rounded-sm ${i < selectedEntry.realism ? (isLightTheme ? 'bg-amber-500 shadow-sm' : 'bg-gold shadow-[0_0_8px_rgba(232,201,155,0.4)]') : (isLightTheme ? 'bg-stone-200' : 'bg-white/10')}`}></div>
-                                 ))}
-                             </div>
-                             <div className={`text-[9px] italic opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 -bottom-4 w-full truncate ${theme.textMuted}`}>
-                                 {REALISM_DESCRIPTIONS[selectedEntry.realism]}
-                             </div>
-                         </div>
-
-                         {/* Risk */}
-                         <div className="group relative pt-2">
-                             <div className="flex justify-between text-[10px] mb-1">
-                                 <span className={theme.textDim}>风险等级 / RISK</span>
-                                 <span className="text-red-400">{selectedEntry.risk}/8</span>
-                             </div>
-                             <div className={`h-2 w-full rounded-sm overflow-hidden flex ${isLightTheme ? 'bg-stone-200' : 'bg-white/10'}`}>
-                                 <div className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-600" style={{width: `${(selectedEntry.risk / 8) * 100}%`}}></div>
-                             </div>
-                             <div className={`text-[9px] italic opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 -bottom-4 w-full truncate ${theme.textMuted}`}>
-                                 {RISK_DESCRIPTIONS[selectedEntry.risk]}
-                             </div>
-                         </div>
-
-                         {/* Anomalous */}
-                         <div className="group relative pt-2">
-                             <div className="flex justify-between text-[10px] mb-1">
-                                 <span className={theme.textDim}>异象刻度 / ANOMALOUS</span>
-                                 <span className="text-cyan-400">{selectedEntry.anomalous}/7</span>
-                             </div>
-                             <div className="flex gap-0.5 h-2 items-end">
-                                 {Array.from({length: 7}).map((_, i) => (
-                                     <div 
-                                        key={i} 
-                                        className={`flex-1 rounded-sm transition-all duration-300 ${i < selectedEntry.anomalous ? (isLightTheme ? 'bg-cyan-500/80 shadow-sm' : 'bg-cyan-500/80 shadow-[0_0_5px_rgba(6,182,212,0.5)]') : (isLightTheme ? 'bg-stone-200' : 'bg-white/5')}`}
-                                        style={{height: i < selectedEntry.anomalous ? `${40 + Math.random() * 60}%` : '20%'}}
-                                     ></div>
-                                 ))}
-                             </div>
-                             <div className={`text-[9px] italic opacity-0 group-hover:opacity-100 transition-opacity absolute left-0 -bottom-4 w-full truncate ${theme.textMuted}`}>
-                                 {ANOMALOUS_DESCRIPTIONS[selectedEntry.anomalous]}
-                             </div>
-                         </div>
-                    </div>
-                    
-                    <div className={`mt-auto pt-6 border-t text-center ${theme.divider}`}>
-                        <div className={`text-[10px] font-mono mb-2 ${theme.textMuted}`}>ENTRY_HASH: {selectedEntry.id}</div>
-                        <button 
-                            onClick={() => setSelectedEntry(null)}
-                            className={`w-full py-3 border text-xs font-bold uppercase tracking-widest rounded-sm transition-colors ${isLightTheme ? 'border-stone-200 hover:bg-stone-100 text-stone-600' : 'border-white/10 hover:bg-white/5 text-parchment'}`}
-                        >
-                            关闭档案
-                        </button>
-                    </div>
-                </div>
-
-            </motion.div>
-        </div>
-      )}
-      </AnimatePresence>
     </div>
   );
 };

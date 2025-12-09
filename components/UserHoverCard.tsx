@@ -35,8 +35,8 @@ export const UserHoverCard: React.FC<UserHoverCardProps> = ({
     const [isFollowing, setIsFollowing] = useState(false); // Mock local state
     
     // Delays
-    const openTimeout = React.useRef<NodeJS.Timeout>(null);
-    const closeTimeout = React.useRef<NodeJS.Timeout>(null);
+    const openTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const closeTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const handleMouseEnter = () => {
         if (closeTimeout.current) clearTimeout(closeTimeout.current);
