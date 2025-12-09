@@ -209,6 +209,101 @@ const InteractiveHeroLogo = ({ isLightTheme }: { isLightTheme: boolean }) => {
     );
 };
 
+// --- ENTRY LOADER (LOGO ANIMATION) ---
+const EntryLoader = ({ isLightTheme }: { isLightTheme: boolean }) => {
+    const color = isLightTheme ? '#d97706' : '#e8c99b'; // amber-600 vs gold
+
+    return (
+        <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 z-[100] flex flex-col items-center justify-center backdrop-blur-xl ${isLightTheme ? 'bg-white/90' : 'bg-obsidian/90'}`}
+        >
+             <div className="relative w-32 h-32 mb-8">
+                <motion.svg 
+                    viewBox="0 0 100 100" 
+                    className="w-full h-full overflow-visible" 
+                    fill="none" 
+                    stroke={color} 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                >
+                    {/* 1. Outer Ring: Constant Rotation */}
+                    <motion.circle 
+                        cx="50" cy="50" r="45" 
+                        strokeDasharray="10 10"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                    />
+                    <motion.circle 
+                        cx="50" cy="50" r="45" 
+                        opacity="0.3"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 1.5, ease: "easeInOut" }}
+                    />
+                    
+                    {/* 2. Eye Shape: Mitosis Animation Loop */}
+                    <motion.circle 
+                        cx="41" cy="50" r="28" 
+                        animate={{ cx: [50, 41, 50], opacity: [0.5, 0.8, 0.5] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    <motion.circle 
+                        cx="59" cy="50" r="28" 
+                        animate={{ cx: [50, 59, 50], opacity: [0.5, 0.8, 0.5] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    
+                    {/* 3. Pupil: Dilate/Blink */}
+                    <motion.circle 
+                        cx="50" cy="50" r="14" 
+                        fill={isLightTheme ? '#fef3c7' : '#2d2a24'}
+                        strokeWidth="0"
+                        animate={{ r: [12, 14, 12] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                    />
+                    <motion.circle 
+                        cx="50" cy="50" r="5" 
+                        strokeWidth="2"
+                        animate={{ scale: [1, 1.5, 1], opacity: [1, 0.5, 1] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                    />
+                </motion.svg>
+                
+                {/* Center Glow */}
+                <motion.div 
+                    className={`absolute inset-0 blur-2xl opacity-20 ${isLightTheme ? 'bg-amber-500' : 'bg-gold'}`}
+                    animate={{ opacity: [0.2, 0.4, 0.2] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                />
+            </div>
+
+            <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col items-center gap-2"
+            >
+                <div className={`text-xs font-mono font-bold tracking-[0.3em] uppercase ${isLightTheme ? 'text-stone-500' : 'text-gold'}`}>
+                    DECRYPTING ARCHIVE...
+                </div>
+                <div className="flex gap-1 h-1">
+                    {[0, 1, 2].map(i => (
+                        <motion.div 
+                            key={i}
+                            className={`w-1 h-1 rounded-full ${isLightTheme ? 'bg-amber-600' : 'bg-gold'}`}
+                            animate={{ opacity: [0.2, 1, 0.2] }}
+                            transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                        />
+                    ))}
+                </div>
+            </motion.div>
+        </motion.div>
+    );
+}
+
 // --- ADVANCED SEARCH PANEL ---
 const AdvancedSearchPanel = ({ 
     isVisible, 
@@ -365,12 +460,8 @@ const CentralSearchHero = ({
     };
 
     const handleAdvancedSearch = (params: any) => {
-        // In a real app, we would merge 'inputValue' + params and trigger the search
-        // For now, we just pass the input value to trigger the list view, 
-        // assuming filter logic would be handled by the parent or API in a real implementation.
-        // We log the params for now.
         console.log("Advanced Params:", params);
-        onSearch(inputValue || " ", params); // Pass a space if empty to force list view open
+        onSearch(inputValue || " ", params); 
     };
 
     const theme = isLightTheme ? {
@@ -878,6 +969,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [bootingCategory, setBootingCategory] = useState<Category | null>(null);
   const [isBootingEditor, setIsBootingEditor] = useState(false);
+  const [bootingEntryId, setBootingEntryId] = useState<string | null>(null); // New state for entry loader
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
   
@@ -1036,6 +1128,15 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
       }
   };
 
+  // Handle Entry Click with Animation
+  const handleEntryClick = (entryId: string) => {
+      setBootingEntryId(entryId);
+      setTimeout(() => {
+          setBootingEntryId(null);
+          onNavigateToEntry(entryId);
+      }, 1500); // 1.5s delay for animation
+  };
+
   const isHeroVisible = !currentCategory && !searchQuery;
 
   return (
@@ -1050,6 +1151,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
       <AnimatePresence>
           {bootingCategory && <CategoryLoader category={bootingCategory} isLightTheme={isLightTheme} />}
           {isBootingEditor && <EditorLoader isLightTheme={isLightTheme} />}
+          {bootingEntryId && <EntryLoader isLightTheme={isLightTheme} />}
       </AnimatePresence>
 
       {/* Fixed Header */}
@@ -1305,7 +1407,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                         animate="show"
                                         exit="exit"
                                         transition={{ delay: index * 0.05 }}
-                                        onClick={() => onNavigateToEntry(entry.id)}
+                                        onClick={() => handleEntryClick(entry.id)}
                                         whileHover={{ scale: 1.02 }}
                                         className={`group relative overflow-hidden backdrop-blur-sm border rounded-sm p-6 cursor-pointer transition-colors duration-500 transform-gpu ${theme.bgCard} ${theme.border} ${theme.bgHover} ${viewMode === 'LIST' ? 'flex gap-6 items-center' : ''} ${isLightTheme ? 'hover:shadow-lg hover:border-amber-300' : 'hover:shadow-xl hover:border-gold/30'}`}
                                     >
@@ -1436,7 +1538,7 @@ export const ArchiveView: React.FC<ArchiveViewProps> = ({ entries, user, onNavig
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.1 * i }}
-                                onClick={() => onNavigateToEntry(entry.id)}
+                                onClick={() => handleEntryClick(entry.id)}
                                 className={`group flex items-center gap-6 border rounded-sm p-4 cursor-pointer transition-colors duration-500 transform-gpu hover:translate-x-1 ${theme.bgCard} ${theme.border} ${isLightTheme ? 'hover:bg-white hover:border-amber-400' : 'bg-obsidian-light/40 hover:border-gold/30 hover:bg-white/5'}`}
                             >
                                 {/* Category Icon & Name */}
